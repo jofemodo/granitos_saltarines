@@ -1,12 +1,88 @@
 # Granitos saltarines
 
-Granular delay whose grains hop around the buffer like bouncing balls
+A granular delay whose grains hop around the buffer like bouncing balls.
 
 LV2 plugin built with [DPF](https://github.com/DISTRHO/DPF), with a native X11 GUI (Cairo) and a
 [zynthian](https://zynthian.org) UI widget (`zyngui:widget`) in the same bundle.
 
 - URI: `https://zynthian.org/plugins/granitos_saltarines`
-- License: GPL-3.0-or-later
+- Maker: Jofemodo · License: GPL-3.0-or-later
+- Delay effect, stereo in / stereo out, no MIDI
+
+## What it does
+
+The input is recorded continuously into a 3 s stereo circular buffer. The sound comes back as grains: short,
+Hann-windowed slices read from the buffer, `Density` new grains per second, up to 64 at once. Each grain starts
+`Time` behind the write head and has its own pitch, direction, pan and start offset. The grains are summed,
+mixed with the dry signal (equal power) and fed back into the buffer.
+
+### The bouncing ball
+
+One ball bounces in real time. It is thrown, and each bounce lasts a fraction `e` of the previous one and is `e²`
+as high, with `e = 0.9 − 0.6 × Gravity`. The first bounce lasts 0.7 s. When the ball has settled it rests for
+0.3 s and is thrown again.
+
+- **Gravity** sets how fast the ball settles: at 0 % it keeps bouncing for about 6 s, at 50 % for about 1.5 s, at
+  100 % for about 1 s.
+- **Hop** sets how far the grains follow the ball. A grain born while the ball is high starts closer to the write
+  head: its delay is `Time × (1 − 0.5 × Hop × ball height)`. The echoes jump with the ball, by up to half the
+  delay time at Hop 100 %.
+- The ball bounces whatever Hop is. At Hop 0 % the grains ignore it, so Gravity has no audible effect.
+
+## Controls
+
+Three pages of four controls, as zynthian shows them.
+
+| Page | Control | Range | Default | What it does |
+|---|---|---|---|---|
+| Delay | Time | 10 – 2000 ms | 300 | How far behind the write head the grains start |
+| Delay | Feedback | 0 – 95 % | 30 | How much of the wet signal goes back into the buffer |
+| Delay | Mix | 0 – 100 % | 50 | Dry / wet (equal power) |
+| Delay | Stereo spread | 0 – 100 % | 50 | How far each grain's random pan reaches from the centre |
+| Grains | Grain size | 5 – 500 ms | 80 | Length of each grain |
+| Grains | Density | 1 – 50 grains/s | 12 | Grains started per second (timing randomised by ±50 %) |
+| Grains | Pitch | −24 – +24 st | 0 | Transposes the grains |
+| Grains | Jitter | 0 – 100 % | 20 | Randomises each grain's start position (up to ± half a grain) and pitch (up to ±12 st) |
+| Hop | Hop | 0 – 100 % | 50 | How far the grains follow the bouncing ball |
+| Hop | Gravity | 0 – 100 % | 50 | How fast the ball settles |
+| Hop | Reverse | 0 – 100 % | 0 | Chance that a grain plays backwards |
+| Hop | Freeze | off / on | off | Stops recording: the buffer keeps looping and the grains keep hopping over it |
+
+The number of grains sounding at once is about `Density × Grain size`: 1 at the defaults, about 25 at 50 grains/s
+with 500 ms grains.
+
+## Behaviour notes
+
+- Changing Time, Mix or Feedback glides over about 50 ms, so there are no clicks.
+- Grains read as a delay behind the write head, kept between 64 samples and the oldest recorded sample: a grain
+  that is pitched up or reversed never reads audio from a whole buffer ago. When Freeze is on, reads wrap around
+  the buffer instead, so the frozen material loops.
+- Feedback can't run away, even when the grains are correlated (same material, no jitter): the feedback path is
+  levelled by the grain overlap and soft-clipped.
+- The output is levelled by the grain overlap, so raising Density or Grain size doesn't make the wet signal
+  louder.
+- The DSP is real-time safe: everything is allocated outside `run()`, and the plugin works without any UI.
+
+## Zynthian widget
+
+Half height, drawn from the plugin's output ports. A strip shows the 3 s circular buffer:
+
+- a line at the point where the grains read by default (the write head minus `Time`), moving along the strip and
+  wrapping at the end, like the buffer does;
+- one dot per sounding grain (up to 16), at the position it is really reading;
+- a ball above the strip, following the bouncing ball;
+- a bar of 16 segments under the strip, 2 grains per segment, with how many grains sound at once.
+
+The native GUI shows the same view, with the three control pages below it as bars you can drag or scroll.
+
+### Output ports
+
+| Port | Range | Meaning |
+|---|---|---|
+| `grain_count` | 0 – 64 | Grains sounding |
+| `read_pos` | 0 – 1 | Write head minus `Time`, as a fraction of the buffer |
+| `hop_height` | 0 – 1 | Height of the bouncing ball |
+| `grain_pos_1` … `grain_pos_16` | −1 – 1 | Read position (0 – 1 of the buffer) of grain slots 0 – 15, or −1 when idle |
 
 ## Build
 
