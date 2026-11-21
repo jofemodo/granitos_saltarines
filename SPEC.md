@@ -26,7 +26,7 @@ Pages = port groups, 4 controls per page in zynthian. Symbols are stable API.
 | Grains | `density` | Density | 1 .. 50 | 12 | grains/s | float |  |
 | Grains | `pitch` | Pitch | -24 .. 24 | 0 | st | float |  |
 | Grains | `jitter` | Jitter | 0 .. 100 | 20 | % | float |  |
-| Hop | `hop` | Hop | 0 .. 100 | 0 | % | float | The signature control |
+| Hop | `hop` | Hop | 0 .. 100 | 50 | % | float | The signature control: how far the grains follow the ball. Default 50 so the plugin shows its character out of the box |
 | Hop | `gravity` | Gravity | 0 .. 100 | 50 | % | float |  |
 | Hop | `reverse` | Reverse | 0 .. 100 | 0 | % | float |  |
 | Hop | `freeze` | Freeze | 0 .. 1 | 0 |  | boolean |  |
@@ -39,7 +39,7 @@ Note: the zynthian's own level meters are used, so there are no peak-level outpu
 |---|---|---|---|
 | `grain_count` | Grains | 0 .. 64 | Number of grains sounding at the end of the block. About `density × grain_size`: 1 at the defaults, ~25 at 50 grains/s with 500 ms grains. |
 | `read_pos` | Read position | 0 .. 1 | Where the grains read by default: write head − `time`, as a fraction of the buffer. Always defined, moves smoothly forward and wraps at the end of the strip. |
-| `hop_height` | Hop height | 0 .. 1 | Highest bounce among the sounding grains, scaled by the `hop` control (0 when `hop` is 0). |
+| `hop_height` | Hop height | 0 .. 1 | Height of the bouncing ball. The ball runs on its own, whatever `hop` is, so `gravity` is always visible. |
 | `grain_pos_1` .. `grain_pos_16` | Grain N position | -1 .. 1 | Real read position (0..1 of the buffer) of grain pool slots 0..15, or -1 when the slot is idle. Grains take the lowest free slot, so up to 16 simultaneous grains are all shown. |
 
 16 position ports instead of one cloud of invented dots: the widget draws each dot where the grain really reads.
@@ -55,7 +55,7 @@ Note: the zynthian's own level meters are used, so there are no peak-level outpu
   - Direction: backwards with probability `reverse`.
   - Pan: random per grain within `spread`, equal power.
 - Reading is done as a delay behind the write head. Unless `freeze` is on, the delay is kept between 64 samples and the oldest sample, so a pitched-up or reversed grain never reads audio from a full buffer ago. When frozen, reads wrap around the buffer and the material keeps looping.
-- Hop: each grain bounces through its lifetime. At bounce `k` its read position jumps forward by `hop × step × r^k`, where `r` shrinks as `gravity` rises.
+- Hop and gravity (revised after review: bouncing inside a grain of 80 ms can't be seen or heard): one bouncing ball runs in real time. It is thrown, and each bounce lasts `e` times the previous one and is `e²` as high, with `e = 0.9 − 0.6 × gravity`: more gravity = it settles sooner (gravity 0 keeps bouncing for ~6 s, gravity 100 settles in ~1 s). The first bounce lasts 0.7 s. When it settles it rests 0.3 s and is thrown again. A grain born while the ball is high starts closer to the write head: its delay is `time × (1 − 0.5 × hop × ball height)`. So the echoes jump with the ball, and `hop` is how far they follow it. With `hop` 0 the ball still bounces but nothing follows it.
 - Feedback goes back into the buffer, so the grains feed the next repeat. The output is levelled by `1/sqrt(overlap)` (overlap = density × grain length / 2), the feedback path by `1/overlap` with a soft clip (`tanh`): even correlated grains give a loop gain below the feedback setting, so it can't run away.
 - Changing `time` glides the read position over about 50 ms, so there are no clicks.
 - Mix: dry/wet with equal power.
@@ -69,7 +69,7 @@ Note: the zynthian's own level meters are used, so there are no peak-level outpu
 - Half height: the lower half of the screen, with the page list visible above it.
 - A strip for the 3 s circular buffer, with 2 % side margins, and a line at `read_pos`.
 - One dot per sounding grain (up to 16), at the position it is really reading (`grain_pos_N`). The lane (vertical position) is fixed by the grain slot.
-- A ball above the strip at `read_pos`, its height following `hop_height`.
+- A ball above the strip at `read_pos`, its height following `hop_height`: it bounces whatever Hop is, and gravity changes how fast it settles. With Hop up, the grain dots are shifted toward the write head while the ball is high.
 - A bar of 16 segments under the strip, 2 grains per segment (full = 32 grains), from `grain_count`.
 - The strip is a ring: near the seam, some grains can already be back at the start while the marker is still at the end.
 - Colours from the zynthian theme. No knob or switch handling: the widget only draws.

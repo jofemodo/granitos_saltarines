@@ -116,7 +116,7 @@
       "name": "Hop",
       "min": 0,
       "max": 100,
-      "def": 0,
+      "def": 50,
       "unit": "%",
       "group": "hop"
     },

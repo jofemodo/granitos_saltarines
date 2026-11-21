@@ -2,7 +2,7 @@
 <p>A granular delay. The input is recorded into a 3 s buffer, and the sound comes back as many short grains read from it. Each grain can hop around the buffer like a bouncing ball, which gives the plugin its character.</p>
 
 <h2>Widget</h2>
-<p>The strip is the delay buffer, a ring of 3 s: the sound is recorded moving along it and wraps around at the end. The thin line is where the grains read by default, which is the delay time behind the recording point. Each dot is a grain that is sounding, drawn where it really is reading. The ball bounces above the strip: the higher it is, the bigger the current hop, and it stays down when Hop is 0. The bar under the strip shows how many grains sound at once.</p>
+<p>The strip is the delay buffer, a ring of 3 s: the sound is recorded moving along it and wraps around at the end. The thin line is where the grains read by default, which is the delay time behind the recording point. Each dot is a grain that is sounding, drawn where it really is reading. The ball bounces above the strip all the time, and settles and is thrown again; when it is high and Hop is up, the grains jump toward the present. The bar under the strip shows how many grains sound at once.</p>
 
 <h2>Delay</h2>
 <ul>
@@ -22,11 +22,11 @@
 
 <h2>Hop</h2>
 <ul>
-  <li><b>Hop</b>: how far each grain bounces around the buffer. This is the main character control.</li>
-  <li><b>Gravity</b>: how quickly the bounces die away. Low values keep the bouncing going, high values settle it fast.</li>
+  <li><b>Hop</b>: how far the grains follow the bouncing ball. While the ball is high, new grains start closer to the present, so the echoes jump with the ball. At 0 the ball still bounces but the grains ignore it. This is the main character control.</li>
+  <li><b>Gravity</b>: how quickly the ball settles. Low values keep it bouncing for several seconds, high values settle it in about a second. You see it in the ball, and hear it when Hop is up.</li>
   <li><b>Reverse</b>: the chance that a grain plays backwards.</li>
   <li><b>Freeze</b>: stops recording new input, so the buffer keeps looping the same material and the grains keep hopping over it.</li>
 </ul>
 
 <h2>Tips</h2>
-<p>Start with <b>Hop</b> at 0 and raise it slowly: high values can sound chaotic. Try a long grain size with low density for smooth, sustained textures, and short grains with high density for clouds.</p>
+<p>Raise <b>Hop</b> slowly from 0 to hear the echoes start to jump: high values can sound chaotic. Try a long grain size with low density for smooth, sustained textures, and short grains with high density for clouds.</p>

@@ -74,7 +74,7 @@ static const ParamDef kParams[kParamCount] = {
     { "density", "Density", "grains/s", 1.0f, 50.0f, 12.0f, kParameterIsAutomatable, 1, nullptr, 0 },
     { "pitch", "Pitch", "st", -24.0f, 24.0f, 0.0f, kParameterIsAutomatable, 1, nullptr, 0 },
     { "jitter", "Jitter", "%", 0.0f, 100.0f, 20.0f, kParameterIsAutomatable, 1, nullptr, 0 },
-    { "hop", "Hop", "%", 0.0f, 100.0f, 0.0f, kParameterIsAutomatable, 2, nullptr, 0 },
+    { "hop", "Hop", "%", 0.0f, 100.0f, 50.0f, kParameterIsAutomatable, 2, nullptr, 0 },
     { "gravity", "Gravity", "%", 0.0f, 100.0f, 50.0f, kParameterIsAutomatable, 2, nullptr, 0 },
     { "reverse", "Reverse", "%", 0.0f, 100.0f, 0.0f, kParameterIsAutomatable, 2, nullptr, 0 },
     { "freeze", "Freeze", "", 0.0f, 1.0f, 0.0f, kParameterIsAutomatable | kParameterIsBoolean, 2, nullptr, 0 },

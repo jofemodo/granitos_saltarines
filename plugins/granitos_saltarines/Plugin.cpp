@@ -21,8 +21,10 @@ START_NAMESPACE_DISTRHO
 namespace GranitosDsp {
 
 constexpr uint32_t kMaxGrains = 64;     // preallocated grain pool
-constexpr uint32_t kBounces = 4;        // bounces per grain when hop > 0
 constexpr uint32_t kHannSize = 1024;    // window lookup table
+constexpr double kBallSeconds = 0.7;    // duration of the first bounce of the ball
+constexpr double kBallRestSeconds = 0.3;// pause once the ball has settled, before it is thrown again
+constexpr double kBallMinPeak = 0.03;   // the ball has settled when its bounce is lower than this
 constexpr double kBufferSeconds = 3.0;  // time max (2 s) + jitter (0.25 s) + longest grain (0.5 s)
 constexpr double kSmoothSeconds = 0.05; // glide time for time / mix / feedback
 constexpr double kMinDelaySamples = 64.0;
@@ -56,14 +58,6 @@ struct Grain {
     double sign = 1.0;     // +1 forward, -1 reverse
     float gainL = 0.0f;    // equal-power pan gains
     float gainR = 0.0f;
-    double hopAmp = 0.0;   // max forward shift of the first bounce, in samples
-    float hopScale = 0.0f; // hop control (0..1): scales the hop height shown by the widget
-    double r = 0.5;        // bounce decay (from gravity)
-    uint32_t bounce = 0;   // current bounce index
-    double bStart = 0.0;   // phase where the current bounce starts (0..1)
-    double bLen = 1.0;     // phase length of the current bounce
-    float bHeight = 0.0f;  // relative height of the current bounce
-    float lastHop = 0.0f;  // hop height at the last processed sample (for the widget)
     float lastPos = 0.0f;  // read position in the buffer (0..1) at the last processed sample (for the widget)
 };
 
@@ -176,6 +170,7 @@ protected:
             fTime = fValues[kParamTime] * 0.001 * fSampleRate;
             fFeedback = fValues[kParamFeedback] * 0.01f;
             fMix = fValues[kParamMix] * 0.01f;
+            throwBall();
             fReset = false;
         }
 
@@ -197,9 +192,9 @@ protected:
         const float pReverse = fValues[kParamReverse] * 0.01f;
         const bool freeze = fValues[kParamFreeze] > 0.5f;
 
-        // Grain decay per bounce: 0 = very bouncy, 1 = no bounce; kept well inside (0, 1)
-        const double r = 0.25 + 0.6 * gravity;
-        const double bounceC = (1.0 - r) / (1.0 - std::pow(r, kBounces));
+        // Restitution of the ball: each bounce lasts e times the previous one and is e^2 as high.
+        // More gravity = lower restitution = the ball settles faster (0 % -> 0.9, 100 % -> 0.3).
+        const double restitution = 0.9 - 0.6 * gravity;
 
         // The Hann grains sum to about density * grain_length / 2 when they are correlated (same material).
         // The output is levelled by 1/sqrt(overlap): right for uncorrelated grains (the usual case with some jitter).
@@ -231,11 +226,14 @@ protected:
                 fWriteCount += 1.0;
             }
 
+            // The bouncing ball runs on its own, whatever the hop is: the hop only decides how far the grains follow it
+            advanceBall(restitution);
+
             // Grain scheduler: one grain every 1/density seconds, timing randomised by ±50 %
             fCountdown -= 1.0;
             if (fCountdown <= 0.0)
             {
-                spawnGrain(fTime, grainLen, jitter, pitch, spread, pReverse, hop, r, bounceC);
+                spawnGrain(fTime, grainLen, jitter, pitch, spread, pReverse, hop, ballHeight());
                 fCountdown += interval * (1.0 + 0.5 * fRng.bipolar());
             }
 
@@ -249,24 +247,9 @@ protected:
                 const double phase = static_cast<double>(g.age) / static_cast<double>(g.len);
                 const float w = fHann[std::min(kHannSize - 1, static_cast<uint32_t>(phase * kHannSize))];
 
-                // Bouncing ball: advance to the bounce that contains this phase
-                while (g.bounce < kBounces && phase >= g.bStart + g.bLen)
-                {
-                    g.bStart += g.bLen;
-                    g.bLen *= g.r;
-                    g.bHeight = static_cast<float>(g.bHeight * g.r);
-                    ++g.bounce;
-                }
-                float hopH = 0.0f;
-                if (g.bounce < kBounces)
-                {
-                    const double q = std::min(1.0, std::max(0.0, (phase - g.bStart) / g.bLen));
-                    hopH = g.bHeight * static_cast<float>(4.0 * q * (1.0 - q));
-                }
-
-                // Read position: start + pitch drift + forward shift of the hop (towards the write head),
+                // Read position: start (already shifted by the hop when the grain was born) + pitch drift,
                 // expressed as a delay behind the write head.
-                const double idx = g.start + g.sign * g.rate * static_cast<double>(g.age) + g.hopAmp * hopH;
+                const double idx = g.start + g.sign * g.rate * static_cast<double>(g.age);
                 double delay = fWriteCount - idx;
                 if (!freeze)
                 {
@@ -293,7 +276,6 @@ protected:
                 sumR += w * g.gainR * sR;
 
                 g.lastPos = static_cast<float>(pos / bufLen);
-                g.lastHop = hopH * g.hopScale;  // the ball only bounces as much as the hop control asks
                 ++g.age;
                 if (g.age >= g.len)
                     g.active = false;
@@ -313,14 +295,9 @@ protected:
 
         // Values for the widget and the native GUI (LV2 output ports)
         uint32_t count = 0;
-        float hopHeight = 0.0f;
         for (const Grain& g : fGrains)
-        {
-            if (!g.active)
-                continue;
-            ++count;
-            hopHeight = std::max(hopHeight, g.lastHop);  // continuous: each grain's hop starts and ends at 0
-        }
+            if (g.active)
+                ++count;
         fValues[kParamGrainCount] = static_cast<float>(count);
 
         // Where the grains read "by default": the write head minus the delay time. Always defined, smooth,
@@ -329,7 +306,7 @@ protected:
         if (nominal < 0.0)
             nominal += bufLen;
         fValues[kParamReadPos] = static_cast<float>(nominal / bufLen);
-        fValues[kParamHopHeight] = hopHeight;
+        fValues[kParamHopHeight] = static_cast<float>(ballHeight());
 
         // Real read position of each grain. Grains take the lowest free pool slot, so with up to
         // kGrainPosCount grains at once they all show up here. -1 = idle slot.
@@ -338,8 +315,54 @@ protected:
     }
 
 private:
+    // ----------------------------------------------------------------------------------------------------------------
+    // The bouncing ball. It is thrown, bounces with each bounce shorter and lower than the last (how much shorter
+    // depends on gravity), settles, rests for a moment and is thrown again. Grains born while it is high start
+    // closer to the write head: the echoes visibly and audibly jump with the ball.
+
+    void throwBall()
+    {
+        fBallLen = kBallSeconds * fSampleRate;
+        fBallPos = 0.0;
+        fBallPeak = 1.0;
+        fBallRest = 0.0;
+        fBallResting = false;
+    }
+
+    // One sample forward; `restitution` is how much of the previous bounce is kept (time: e, height: e^2)
+    void advanceBall(const double restitution)
+    {
+        if (fBallResting)
+        {
+            if (--fBallRest <= 0.0)
+                throwBall();
+            return;
+        }
+        fBallPos += 1.0;
+        if (fBallPos >= fBallLen)
+        {
+            fBallPos = 0.0;
+            fBallLen *= restitution;
+            fBallPeak *= restitution * restitution;
+            if (fBallPeak < kBallMinPeak || fBallLen < 1.0)
+            {
+                fBallResting = true;
+                fBallRest = kBallRestSeconds * fSampleRate;
+            }
+        }
+    }
+
+    // Height of the ball, 0 (on the ground) .. 1 (the first bounce at its top)
+    double ballHeight() const
+    {
+        if (fBallResting)
+            return 0.0;
+        const double q = fBallPos / fBallLen;
+        return fBallPeak * 4.0 * q * (1.0 - q);
+    }
+
     void spawnGrain(double delay, double grainLen, float jitter, float pitch, float spread,
-                    float pReverse, double hop, double r, double bounceC)
+                    float pReverse, double hop, double ballH)
     {
         // Pick the lowest free slot, or steal the oldest grain
         Grain* slot = nullptr;
@@ -362,7 +385,9 @@ private:
         const double len = grainLen;
         const bool reverse = fRng.unit() < pReverse;
         const double rate = std::pow(2.0, (pitch + fRng.bipolar() * 12.0 * jitter) / 12.0);
-        const double d0 = std::max(kMinDelaySamples, delay + fRng.bipolar() * jitter * 0.5 * len);
+        // The hop: the higher the ball, the closer to the write head the grain starts (up to half the delay time)
+        const double hopShift = hop * 0.5 * delay * ballH;
+        const double d0 = std::max(kMinDelaySamples, delay - hopShift + fRng.bipolar() * jitter * 0.5 * len);
         const double pan = 0.5 + 0.5 * fRng.bipolar() * spread;
 
         Grain& g = *slot;
@@ -376,14 +401,6 @@ private:
         g.start = fWriteCount - d0 + (reverse ? rate * len : 0.0);
         g.gainL = static_cast<float>(std::cos(pan * kPi * 0.5));
         g.gainR = static_cast<float>(std::sin(pan * kPi * 0.5));
-        g.hopAmp = hop * 0.5 * d0;
-        g.hopScale = static_cast<float>(hop);
-        g.r = r;
-        g.bounce = 0;
-        g.bStart = 0.0;
-        g.bLen = bounceC;
-        g.bHeight = 1.0f;
-        g.lastHop = 0.0f;
         g.lastPos = 0.0f;  // set by the grain loop: a new grain is processed in the same sample it spawns
     }
 
@@ -404,6 +421,13 @@ private:
     Rng fRng;
 
     float fHann[kHannSize];
+
+    // The bouncing ball
+    double fBallLen = 1.0;       // length of the current bounce, in samples
+    double fBallPos = 0.0;       // samples into the current bounce
+    double fBallPeak = 1.0;      // height of the current bounce
+    double fBallRest = 0.0;      // samples left of the pause after the ball settled
+    bool fBallResting = false;
 
     double fTime = 0.0;
     float fFeedback = 0.0f;
