@@ -1,13 +1,19 @@
 <h1>Granitos saltarines</h1>
-<p>A granular delay. The input is recorded into a 3 s buffer, and the sound comes back as many short grains read from it. Each grain can hop around the buffer like a bouncing ball, which gives the plugin its character.</p>
+<p>A granular delay. The input is recorded into a 3 s buffer, and the sound comes back as many short grains read from it. A bouncing ball makes the grains hop between positions in the buffer, which gives the plugin its character.</p>
 
 <h2>Widget</h2>
-<p>The strip is the delay buffer, a ring of 3 s: the sound is recorded moving along it and wraps around at the end. The thin line is where the grains read by default, which is the delay time behind the recording point. Each dot is a grain that is sounding, drawn where it really is reading. The ball bounces above the strip all the time, and settles and is thrown again; when it is high and Hop is up, the grains jump toward the present. The bar under the strip shows how many grains sound at once.</p>
+<p>The strip is the delay buffer, a ring of 3 s: the sound is recorded moving along it and wraps around at the end, so near the end of the strip some grains can already be back at the start.</p>
+<ul>
+  <li>The thin line is where the grains read by default: the delay time behind the recording point.</li>
+  <li>Each dot is a grain that is sounding, drawn where it really is reading (up to 16 dots).</li>
+  <li>The ball bounces above the strip all the time: it settles, rests for a moment and is thrown again. While it is high and Hop is up, new grains start closer to the present, so the dots jump away from the line.</li>
+  <li>The bar under the strip shows how many grains sound at once, 2 grains per segment.</li>
+</ul>
 
 <h2>Delay</h2>
 <ul>
   <li><b>Time</b>: how far back in the buffer the grains start, in ms.</li>
-  <li><b>Feedback</b>: how much of the output goes back into the buffer, so each repeat is heard again.</li>
+  <li><b>Feedback</b>: how much of the output goes back into the buffer, so each repeat is heard again. High values give long, building repeats; they are softly limited, so they never run away.</li>
   <li><b>Mix</b>: dry signal against the granular (wet) signal.</li>
   <li><b>Stereo spread</b>: how far each grain's random pan reaches from the centre: 0 keeps everything in the middle, 100 spreads the grains across the whole stereo field.</li>
 </ul>
@@ -15,18 +21,18 @@
 <h2>Grains</h2>
 <ul>
   <li><b>Grain size</b>: length of each grain, in ms. Short grains sound grainy, long ones sound smooth.</li>
-  <li><b>Density</b>: how many grains start per second.</li>
+  <li><b>Density</b>: how many grains start per second, with the spacing between them randomised by up to ±50 %. The number of grains sounding at once is about Density × Grain size: 1 at the defaults, around 25 at 50 grains/s with 500 ms grains.</li>
   <li><b>Pitch</b>: transposes the grains, in semitones.</li>
-  <li><b>Jitter</b>: randomness of each grain's start position and pitch.</li>
+  <li><b>Jitter</b>: randomness of each grain's start position and pitch. At 100 % the pitch of a grain can wander up to an octave either way.</li>
 </ul>
 
 <h2>Hop</h2>
 <ul>
-  <li><b>Hop</b>: how far the grains follow the bouncing ball. While the ball is high, new grains start closer to the present, so the echoes jump with the ball. At 0 the ball still bounces but the grains ignore it. This is the main character control.</li>
-  <li><b>Gravity</b>: how quickly the ball settles. Low values keep it bouncing for several seconds, high values settle it in about a second. You see it in the ball, and hear it when Hop is up.</li>
+  <li><b>Hop</b>: how far the grains follow the bouncing ball. While the ball is high, new grains start closer to the present, so the echoes jump with the ball: by up to half the delay time at 100 %. At 0 the ball still bounces but the grains ignore it. This is the main character control.</li>
+  <li><b>Gravity</b>: how quickly the ball settles. At 0 it keeps bouncing for about 6 seconds, at 100 it settles in about a second. You see it in the ball, and hear it when Hop is up.</li>
   <li><b>Reverse</b>: the chance that a grain plays backwards.</li>
-  <li><b>Freeze</b>: stops recording new input, so the buffer keeps looping the same material and the grains keep hopping over it.</li>
+  <li><b>Freeze</b>: stops recording new input, so the buffer keeps looping the same material and the grains keep hopping over it. Nothing new is written while frozen, so Feedback has no effect either.</li>
 </ul>
 
 <h2>Tips</h2>
-<p>Raise <b>Hop</b> slowly from 0 to hear the echoes start to jump: high values can sound chaotic. Try a long grain size with low density for smooth, sustained textures, and short grains with high density for clouds.</p>
+<p>Raise <b>Hop</b> slowly from 0 to hear the echoes start to jump: high values can sound chaotic. Lower <b>Gravity</b> for a ball that keeps the echoes jumping for longer, raise it for a short burst of jumps each time the ball is thrown. Try a long grain size with low density for smooth, sustained textures, and short grains with high density for clouds. Turn <b>Freeze</b> on to play with the hop over a captured moment.</p>
