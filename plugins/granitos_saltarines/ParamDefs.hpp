@@ -27,10 +27,12 @@ enum ParamId : uint32_t {
     kParamReadPos = 13,  // output
     kParamHopHeight = 14,  // output
     kParamGrainPos0 = 15,  // 16 outputs: grain_pos_1 .. grain_pos_16 (kGrainPosCount)
-    kParamCount = 31
+    kParamGrainEnv0 = 31,  // 16 outputs: grain_env_1 .. grain_env_16 (kGrainPosCount)
+    kParamCount = 47
 };
 
-// Read position (0..1 of the buffer) of grain pool slots 0..15, or -1 when the slot is idle
+// Read position (0..1 of the buffer) of grain pool slots 0..15, or -1 when the slot is idle,
+// and the level (Hann window, 0..1) of each of those grains: the widget sizes the dots with it
 static const uint32_t kGrainPosCount = 16;
 
 enum GroupId : uint32_t {
@@ -97,6 +99,22 @@ static const ParamDef kParams[kParamCount] = {
     { "grain_pos_14", "Grain 14 position", "", -1.0f, 1.0f, -1.0f, kParameterIsAutomatable | kParameterIsOutput, 3, nullptr, 0 },
     { "grain_pos_15", "Grain 15 position", "", -1.0f, 1.0f, -1.0f, kParameterIsAutomatable | kParameterIsOutput, 3, nullptr, 0 },
     { "grain_pos_16", "Grain 16 position", "", -1.0f, 1.0f, -1.0f, kParameterIsAutomatable | kParameterIsOutput, 3, nullptr, 0 },
+    { "grain_env_1", "Grain 1 level", "", 0.0f, 1.0f, 0.0f, kParameterIsAutomatable | kParameterIsOutput, 3, nullptr, 0 },
+    { "grain_env_2", "Grain 2 level", "", 0.0f, 1.0f, 0.0f, kParameterIsAutomatable | kParameterIsOutput, 3, nullptr, 0 },
+    { "grain_env_3", "Grain 3 level", "", 0.0f, 1.0f, 0.0f, kParameterIsAutomatable | kParameterIsOutput, 3, nullptr, 0 },
+    { "grain_env_4", "Grain 4 level", "", 0.0f, 1.0f, 0.0f, kParameterIsAutomatable | kParameterIsOutput, 3, nullptr, 0 },
+    { "grain_env_5", "Grain 5 level", "", 0.0f, 1.0f, 0.0f, kParameterIsAutomatable | kParameterIsOutput, 3, nullptr, 0 },
+    { "grain_env_6", "Grain 6 level", "", 0.0f, 1.0f, 0.0f, kParameterIsAutomatable | kParameterIsOutput, 3, nullptr, 0 },
+    { "grain_env_7", "Grain 7 level", "", 0.0f, 1.0f, 0.0f, kParameterIsAutomatable | kParameterIsOutput, 3, nullptr, 0 },
+    { "grain_env_8", "Grain 8 level", "", 0.0f, 1.0f, 0.0f, kParameterIsAutomatable | kParameterIsOutput, 3, nullptr, 0 },
+    { "grain_env_9", "Grain 9 level", "", 0.0f, 1.0f, 0.0f, kParameterIsAutomatable | kParameterIsOutput, 3, nullptr, 0 },
+    { "grain_env_10", "Grain 10 level", "", 0.0f, 1.0f, 0.0f, kParameterIsAutomatable | kParameterIsOutput, 3, nullptr, 0 },
+    { "grain_env_11", "Grain 11 level", "", 0.0f, 1.0f, 0.0f, kParameterIsAutomatable | kParameterIsOutput, 3, nullptr, 0 },
+    { "grain_env_12", "Grain 12 level", "", 0.0f, 1.0f, 0.0f, kParameterIsAutomatable | kParameterIsOutput, 3, nullptr, 0 },
+    { "grain_env_13", "Grain 13 level", "", 0.0f, 1.0f, 0.0f, kParameterIsAutomatable | kParameterIsOutput, 3, nullptr, 0 },
+    { "grain_env_14", "Grain 14 level", "", 0.0f, 1.0f, 0.0f, kParameterIsAutomatable | kParameterIsOutput, 3, nullptr, 0 },
+    { "grain_env_15", "Grain 15 level", "", 0.0f, 1.0f, 0.0f, kParameterIsAutomatable | kParameterIsOutput, 3, nullptr, 0 },
+    { "grain_env_16", "Grain 16 level", "", 0.0f, 1.0f, 0.0f, kParameterIsAutomatable | kParameterIsOutput, 3, nullptr, 0 },
 };
 
 // Outputs filled by the demo meters in Plugin.cpp (peak dB of the audio outputs)

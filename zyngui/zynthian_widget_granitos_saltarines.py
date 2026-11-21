@@ -6,14 +6,19 @@
 # Declared as a zyngui:widget LV2 UI (see the bundle's manifest.ttl). Half height.
 #
 # Shows the delay buffer as a strip, with:
-#   - a green line: where the grains read by default (write head minus the delay time),
-#   - one dot per sounding grain, at the position it is really reading (up to 16 grains),
-#   - an orange ball that bounces above the strip with the current hop,
+#   - a line where the grains read by default (write head minus the delay time),
+#   - one dot per sounding grain, at the position it is really reading (up to 16 grains). The dot
+#     swells and shrinks with the grain's own level (its Hann window): newborn and dying grains are small,
+#     grains in the middle of their life are big,
+#   - a ball that bounces above the strip, and whose size follows the Hop control: the bigger the ball,
+#     the harder it pulls the grains,
 #   - a bar of segments under the strip with how many grains sound at once.
 #
 # Data: LV2 output control ports ("monitors"), polled ~30 times/s while shown:
 #   self.monitors['grain_count'], ['read_pos'] (0..1), ['hop_height'] (0..1),
-#   ['grain_pos_1'] .. ['grain_pos_16'] (0..1, or -1 when that grain slot is idle)
+#   ['grain_pos_1'] .. ['grain_pos_16'] (0..1, or -1 when that grain slot is idle),
+#   ['grain_env_1'] .. ['grain_env_16'] (0..1, level of that grain)
+# and the Hop control: self.processor.controllers_dict['hop'].
 # The widget only draws: it has no controls of its own.
 #
 # Copyright (C) 2026 Jofemodo
@@ -25,8 +30,9 @@ import tkinter
 from zyngui import zynthian_gui_config
 from zyngui import zynthian_widget_base
 
-GRAIN_SLOTS = 16                  # grain_pos_N monitors, must match kGrainPosCount in the DSP
+GRAIN_SLOTS = 16                  # grain_pos_N / grain_env_N monitors, must match kGrainPosCount in the DSP
 POS_KEYS = [f"grain_pos_{i + 1}" for i in range(GRAIN_SLOTS)]
+ENV_KEYS = [f"grain_env_{i + 1}" for i in range(GRAIN_SLOTS)]
 SEGMENTS = 16                     # density bar: each segment lights up for 2 grains
 GRAINS_PER_SEGMENT = 2            # full bar = 32 grains: more than density x grain size can reach (~28)
 LANES = 4                         # dots are spread over this many lanes of the strip, by grain slot
@@ -66,8 +72,13 @@ class zynthian_widget_granitos_saltarines(zynthian_widget_base.zynthian_widget_b
         self.strip_top = int(h * 0.60)
         self.strip_bot = int(h * 0.86)
         self.max_hop = h * 0.45          # how high the ball can bounce above the strip
-        self.ball_r = max(3, int(h * 0.06))
-        self.dot_r = max(2, int(h * 0.035))
+        # The ball is as big as the Hop control says: small when the grains hardly follow it, big when they do
+        self.ball_r_min = max(2, int(h * 0.025))
+        self.ball_r_max = max(4, int(h * 0.075))
+        # A dot is as big as its grain's level: as big as its lane at the top of the grain's window, a pin at the ends
+        self.lane_h = (self.strip_bot - self.strip_top) / LANES
+        self.dot_r_min = 1
+        self.dot_r_max = max(2, int(self.lane_h * 0.5))
 
         # Density bar under the strip: SEGMENTS cells across the strip's width
         seg_w = (self.x1 - self.x0) / SEGMENTS
@@ -80,6 +91,15 @@ class zynthian_widget_granitos_saltarines(zynthian_widget_base.zynthian_widget_b
             sx1 = self.x0 + (i + 1) * seg_w - 2
             c.coords(seg, sx0, seg_y0, sx1, seg_y1)
         self.last_state = None           # redraw everything with the new geometry
+
+    def get_hop(self):
+        """Hop control as a fraction (0..1). 1 if it can't be read: a full-size ball is the safe default."""
+        try:
+            zctrl = self.processor.controllers_dict['hop']
+            lo, hi = zctrl.value_min, zctrl.value_max
+            return min(1.0, max(0.0, (zctrl.value - lo) / (hi - lo)))
+        except Exception:
+            return 1.0
 
     def refresh_gui(self):
         # Called every ~32 ms while shown: only touch the canvas when something moved
@@ -96,36 +116,43 @@ class zynthian_widget_granitos_saltarines(zynthian_widget_base.zynthian_widget_b
         n = max(0, int(round(count)))
         px = int(self.x0 + min(1.0, max(0.0, pos)) * span)
         hpx = int(min(1.0, max(0.0, hop)) * self.max_hop)
-        # x pixel of each grain, or None when its slot is idle
-        dots = tuple(int(self.x0 + min(1.0, v) * span) if v is not None and v >= 0.0 else None
-                     for v in (m.get(k) for k in POS_KEYS))
-        state = (n, px, hpx, dots)
+        ball_r = int(round(self.ball_r_min + (self.ball_r_max - self.ball_r_min) * self.get_hop()))
+        # Each grain: (x pixel, radius in pixels), or None when its slot is idle
+        dots = []
+        for kp, ke in zip(POS_KEYS, ENV_KEYS):
+            v = m.get(kp)
+            if v is None or v < 0.0:
+                dots.append(None)
+                continue
+            env = min(1.0, max(0.0, m.get(ke) or 0.0))
+            dots.append((int(self.x0 + min(1.0, v) * span),
+                         int(round(self.dot_r_min + (self.dot_r_max - self.dot_r_min) * env))))
+        dots = tuple(dots)
+        state = (n, px, hpx, ball_r, dots)
         if state == self.last_state:
             return
         last = self.last_state
         self.last_state = state
 
         c = self.widget_canvas
-        r = self.ball_r
         if last is None or px != last[1]:
             c.coords(self.marker, px, self.strip_top, px, self.strip_bot)
-        if last is None or px != last[1] or hpx != last[2]:
-            ball_y = self.strip_top - r - 2 - hpx
-            c.coords(self.ball, px - r, ball_y - r, px + r, ball_y + r)
+        if last is None or px != last[1] or hpx != last[2] or ball_r != last[3]:
+            ball_y = self.strip_top - ball_r - 2 - hpx
+            c.coords(self.ball, px - ball_r, ball_y - ball_r, px + ball_r, ball_y + ball_r)
 
         # One dot per sounding grain, at the position it is reading. The lane (vertical position) is
         # fixed by the grain's slot, so a grain keeps its lane for as long as it sounds.
-        if last is None or dots != last[3]:
-            lane_h = (self.strip_bot - self.strip_top) / LANES
-            dr = self.dot_r
+        if last is None or dots != last[4]:
             for i, dot in enumerate(self.dots):
-                x = dots[i]
-                if x is None:
-                    if last is None or last[3][i] is not None:
+                d = dots[i]
+                if d is None:
+                    if last is None or last[4][i] is not None:
                         c.coords(dot, OFFSCREEN, OFFSCREEN, OFFSCREEN, OFFSCREEN)
                 else:
-                    cy = self.strip_top + (i % LANES + 0.5) * lane_h
-                    c.coords(dot, x - dr, cy - dr, x + dr, cy + dr)
+                    x, r = d
+                    cy = self.strip_top + (i % LANES + 0.5) * self.lane_h
+                    c.coords(dot, x - r, cy - r, x + r, cy + r)
 
         # Density bar: segment i is lit when there are more than 2*i grains
         if last is None or n != last[0]:

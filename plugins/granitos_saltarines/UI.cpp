@@ -168,7 +168,10 @@ private:
     void drawBufferView(cairo_t* const cr, const double w, const double h)
     {
         const double stripTop = h * 0.26, stripBot = h * 0.36;
-        const double r = h * 0.03;
+        // The ball is as big as the Hop control says: small when the grains hardly follow it, big when they do
+        const ParamDef& hopDef(kParams[kParamHop]);
+        const double hopFrac = std::fmin(1.0, std::fmax(0.0, (fValues[kParamHop] - hopDef.min) / (hopDef.max - hopDef.min)));
+        const double r = h * 0.012 + (h * 0.04 - h * 0.012) * hopFrac;
         const double maxHop = h * 0.12;
 
         // Title and grain count
@@ -210,16 +213,19 @@ private:
 
         // Grain dots: one per sounding grain, at the position it is really reading (up to 16 grains).
         // The lane (vertical position) is fixed by the grain's slot, so a grain keeps its lane while it sounds.
+        // A dot is as big as its grain's level: as big as its lane at the top of the grain's window, a pin at the ends.
         const double laneH = (stripBot - stripTop) / kGrainLanes;
-        const double gr = std::fmax(2.0, laneH * 0.4);
+        const double maxRadius = std::fmax(2.0, laneH * 0.5);
         cairo_set_source_rgb(cr, 0.20, 0.75, 0.35);
         for (uint32_t k = 0; k < kGrainPosCount; ++k)
         {
             const float v = fValues[kParamGrainPos0 + k];
             if (v < 0.0f)
                 continue;  // idle slot
+            const double env = std::fmin(1.0, std::fmax(0.0, static_cast<double>(fValues[kParamGrainEnv0 + k])));
+            const double radius = 1.0 + (maxRadius - 1.0) * env;
             const double x = stripX0 + std::fmin(1.0, static_cast<double>(v)) * (stripX1 - stripX0);
-            cairo_arc(cr, x, stripTop + (static_cast<double>(k % kGrainLanes) + 0.5) * laneH, gr, 0.0, 2.0 * M_PI);
+            cairo_arc(cr, x, stripTop + (static_cast<double>(k % kGrainLanes) + 0.5) * laneH, radius, 0.0, 2.0 * M_PI);
             cairo_fill(cr);
         }
 

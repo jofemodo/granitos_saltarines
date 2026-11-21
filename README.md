@@ -69,8 +69,10 @@ Half height, drawn from the plugin's output ports. A strip shows the 3 s circula
 
 - a line at the point where the grains read by default (the write head minus `Time`), moving along the strip and
   wrapping at the end, like the buffer does;
-- one dot per sounding grain (up to 16), at the position it is really reading;
-- a ball above the strip, following the bouncing ball;
+- one dot per sounding grain (up to 16), at the position it is really reading. Its size follows the grain's own
+  level (its Hann window): pin-sized when the grain starts and ends, as big as its lane in the middle of its life;
+- a ball above the strip, following the bouncing ball. Its size follows the Hop control: the bigger the ball, the
+  harder it pulls the grains;
 - a bar of 16 segments under the strip, 2 grains per segment, with how many grains sound at once.
 
 The native GUI shows the same view, with the three control pages below it as bars you can drag or scroll.
@@ -83,6 +85,7 @@ The native GUI shows the same view, with the three control pages below it as bar
 | `read_pos` | 0 – 1 | Write head minus `Time`, as a fraction of the buffer |
 | `hop_height` | 0 – 1 | Height of the bouncing ball |
 | `grain_pos_1` … `grain_pos_16` | −1 – 1 | Read position (0 – 1 of the buffer) of grain slots 0 – 15, or −1 when idle |
+| `grain_env_1` … `grain_env_16` | 0 – 1 | Level (Hann window) of those grains, 0 when idle |
 
 ## Build
 

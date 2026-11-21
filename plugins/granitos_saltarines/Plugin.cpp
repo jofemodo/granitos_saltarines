@@ -59,6 +59,7 @@ struct Grain {
     float gainL = 0.0f;    // equal-power pan gains
     float gainR = 0.0f;
     float lastPos = 0.0f;  // read position in the buffer (0..1) at the last processed sample (for the widget)
+    float lastEnv = 0.0f;  // window level (0..1) at the last processed sample (for the widget)
 };
 
 // Flush tiny values to zero: denormals are slow on ARM and feedback tails decay into them
@@ -276,6 +277,7 @@ protected:
                 sumR += w * g.gainR * sR;
 
                 g.lastPos = static_cast<float>(pos / bufLen);
+                g.lastEnv = w;
                 ++g.age;
                 if (g.age >= g.len)
                     g.active = false;
@@ -311,7 +313,10 @@ protected:
         // Real read position of each grain. Grains take the lowest free pool slot, so with up to
         // kGrainPosCount grains at once they all show up here. -1 = idle slot.
         for (uint32_t k = 0; k < kGrainPosCount; ++k)
+        {
             fValues[kParamGrainPos0 + k] = fGrains[k].active ? fGrains[k].lastPos : -1.0f;
+            fValues[kParamGrainEnv0 + k] = fGrains[k].active ? fGrains[k].lastEnv : 0.0f;
+        }
     }
 
 private:
@@ -402,6 +407,7 @@ private:
         g.gainL = static_cast<float>(std::cos(pan * kPi * 0.5));
         g.gainR = static_cast<float>(std::sin(pan * kPi * 0.5));
         g.lastPos = 0.0f;  // set by the grain loop: a new grain is processed in the same sample it spawns
+        g.lastEnv = 0.0f;
     }
 
     float fValues[kParamCount];

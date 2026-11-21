@@ -302,6 +302,134 @@
       "max": 1,
       "def": -1,
       "group": "viz"
+    },
+    {
+      "symbol": "grain_env_1",
+      "name": "Grain 1 level",
+      "min": 0,
+      "max": 1,
+      "def": 0,
+      "group": "viz"
+    },
+    {
+      "symbol": "grain_env_2",
+      "name": "Grain 2 level",
+      "min": 0,
+      "max": 1,
+      "def": 0,
+      "group": "viz"
+    },
+    {
+      "symbol": "grain_env_3",
+      "name": "Grain 3 level",
+      "min": 0,
+      "max": 1,
+      "def": 0,
+      "group": "viz"
+    },
+    {
+      "symbol": "grain_env_4",
+      "name": "Grain 4 level",
+      "min": 0,
+      "max": 1,
+      "def": 0,
+      "group": "viz"
+    },
+    {
+      "symbol": "grain_env_5",
+      "name": "Grain 5 level",
+      "min": 0,
+      "max": 1,
+      "def": 0,
+      "group": "viz"
+    },
+    {
+      "symbol": "grain_env_6",
+      "name": "Grain 6 level",
+      "min": 0,
+      "max": 1,
+      "def": 0,
+      "group": "viz"
+    },
+    {
+      "symbol": "grain_env_7",
+      "name": "Grain 7 level",
+      "min": 0,
+      "max": 1,
+      "def": 0,
+      "group": "viz"
+    },
+    {
+      "symbol": "grain_env_8",
+      "name": "Grain 8 level",
+      "min": 0,
+      "max": 1,
+      "def": 0,
+      "group": "viz"
+    },
+    {
+      "symbol": "grain_env_9",
+      "name": "Grain 9 level",
+      "min": 0,
+      "max": 1,
+      "def": 0,
+      "group": "viz"
+    },
+    {
+      "symbol": "grain_env_10",
+      "name": "Grain 10 level",
+      "min": 0,
+      "max": 1,
+      "def": 0,
+      "group": "viz"
+    },
+    {
+      "symbol": "grain_env_11",
+      "name": "Grain 11 level",
+      "min": 0,
+      "max": 1,
+      "def": 0,
+      "group": "viz"
+    },
+    {
+      "symbol": "grain_env_12",
+      "name": "Grain 12 level",
+      "min": 0,
+      "max": 1,
+      "def": 0,
+      "group": "viz"
+    },
+    {
+      "symbol": "grain_env_13",
+      "name": "Grain 13 level",
+      "min": 0,
+      "max": 1,
+      "def": 0,
+      "group": "viz"
+    },
+    {
+      "symbol": "grain_env_14",
+      "name": "Grain 14 level",
+      "min": 0,
+      "max": 1,
+      "def": 0,
+      "group": "viz"
+    },
+    {
+      "symbol": "grain_env_15",
+      "name": "Grain 15 level",
+      "min": 0,
+      "max": 1,
+      "def": 0,
+      "group": "viz"
+    },
+    {
+      "symbol": "grain_env_16",
+      "name": "Grain 16 level",
+      "min": 0,
+      "max": 1,
+      "def": 0,
+      "group": "viz"
     }
   ],
   "port_extras": {},

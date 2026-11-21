@@ -42,7 +42,9 @@ Note: the zynthian's own level meters are used, so there are no peak-level outpu
 | `hop_height` | Hop height | 0 .. 1 | Height of the bouncing ball. The ball runs on its own, whatever `hop` is, so `gravity` is always visible. |
 | `grain_pos_1` .. `grain_pos_16` | Grain N position | -1 .. 1 | Real read position (0..1 of the buffer) of grain pool slots 0..15, or -1 when the slot is idle. Grains take the lowest free slot, so up to 16 simultaneous grains are all shown. |
 
-16 position ports instead of one cloud of invented dots: the widget draws each dot where the grain really reads.
+| `grain_env_1` .. `grain_env_16` | Grain N level | 0 .. 1 | Level of the same grains: their Hann window value (0 at the ends, 1 in the middle), 0 when the slot is idle. |
+
+16 position ports instead of one cloud of invented dots: the widget draws each dot where the grain really reads. Sizes carry information too: a dot's radius follows its grain's level, and the ball's radius follows the Hop control.
 
 ## DSP — DONE (host-tested locally and built on the zynthian)
 - Buffer: stereo circular buffer of 3 s at the host sample rate (time max 2 s + jitter 0.25 s + longest grain 0.5 s). The input plus the feedback signal is written every sample, unless `freeze` is on.
@@ -68,8 +70,8 @@ Note: the zynthian's own level meters are used, so there are no peak-level outpu
 ## Zynthian widget — DONE (built, installed, check passes; not yet seen on the display)
 - Half height: the lower half of the screen, with the page list visible above it.
 - A strip for the 3 s circular buffer, with 2 % side margins, and a line at `read_pos`.
-- One dot per sounding grain (up to 16), at the position it is really reading (`grain_pos_N`). The lane (vertical position) is fixed by the grain slot.
-- A ball above the strip at `read_pos`, its height following `hop_height`: it bounces whatever Hop is, and gravity changes how fast it settles. With Hop up, the grain dots are shifted toward the write head while the ball is high.
+- One dot per sounding grain (up to 16), at the position it is really reading (`grain_pos_N`). The lane (vertical position) is fixed by the grain slot. The dot's radius follows the grain's level (`grain_env_N`): a pin at the ends of the grain, as big as the lane in the middle.
+- A ball above the strip at `read_pos`, its height following `hop_height` and its radius following the Hop control (the widget reads the control itself): it bounces whatever Hop is, and gravity changes how fast it settles. With Hop up, the grain dots are shifted toward the write head while the ball is high.
 - A bar of 16 segments under the strip, 2 grains per segment (full = 32 grains), from `grain_count`.
 - The strip is a ring: near the seam, some grains can already be back at the start while the marker is still at the end.
 - Colours from the zynthian theme. No knob or switch handling: the widget only draws.
