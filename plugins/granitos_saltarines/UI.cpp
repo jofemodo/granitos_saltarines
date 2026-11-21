@@ -26,6 +26,8 @@ namespace {
 constexpr uint32_t kColumns = 3;         // one column per control page
 constexpr uint32_t kRowsPerColumn = 4;   // 4 controls per page
 constexpr uint32_t kMaxGrainDots = 64;   // must match kMaxGrains in the DSP
+constexpr uint32_t kSegments = 16;       // density bar: 16 segments...
+constexpr uint32_t kGrainsPerSegment = kMaxGrainDots / kSegments;  // ...of 4 grains each
 constexpr double kViewFraction = 0.46;   // top part of the window: buffer view
 constexpr double kMargin = 10.0;
 }
@@ -176,11 +178,21 @@ private:
         cairo_move_to(cr, kMargin, h * 0.09);
         cairo_show_text(cr, "Granitos saltarines");
 
-        cairo_select_font_face(cr, "sans-serif", CAIRO_FONT_SLANT_NORMAL, CAIRO_FONT_WEIGHT_NORMAL);
-        char text[32];
         const int count = std::min(static_cast<int>(kMaxGrainDots), static_cast<int>(std::lround(fValues[kParamGrainCount])));
-        std::snprintf(text, sizeof(text), "%d grains", count);
-        drawTextRight(cr, text, w - kMargin, h * 0.09);
+
+        // Density bar: segment i is lit when there are more than 4*i grains
+        const double barX0 = w * 0.45, barX1 = w - kMargin;
+        const double segW = (barX1 - barX0) / kSegments;
+        const double barY0 = h * 0.05, barY1 = h * 0.20;
+        for (uint32_t i = 0; i < kSegments; ++i)
+        {
+            if (count > static_cast<int>(i * kGrainsPerSegment))
+                cairo_set_source_rgb(cr, 0.20, 0.75, 0.35);
+            else
+                cairo_set_source_rgb(cr, 0.20, 0.21, 0.24);
+            cairo_rectangle(cr, barX0 + i * segW + 2.0, barY0, segW - 4.0, barY1 - barY0);
+            cairo_fill(cr);
+        }
 
         // The buffer strip
         cairo_set_source_rgb(cr, 0.20, 0.21, 0.24);
