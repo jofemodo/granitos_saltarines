@@ -1,0 +1,3 @@
+{
+  "_comment": "Extra TTL statements per port symbol (or 'group:<symbol>'), added after the build. See references/dpf.md of the zynthian-lv2-plugin skill."
+}

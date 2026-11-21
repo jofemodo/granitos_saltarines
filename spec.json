@@ -1,0 +1,187 @@
+{
+  "name": "Granitos saltarines",
+  "symbol": "granitos_saltarines",
+  "class": "GranitosSaltarines",
+  "uri": "https://zynthian.org/plugins/granitos_saltarines",
+  "maker": "Jofemodo",
+  "brand_id": "Jofe",
+  "unique_id": "gSal",
+  "description": "Granular delay whose grains hop around the buffer like bouncing balls",
+  "license": "GPL-3.0-or-later",
+  "homepage": "https://zynthian.org",
+  "version": [
+    0,
+    1,
+    0
+  ],
+  "lv2_category": "lv2:DelayPlugin",
+  "audio_inputs": 2,
+  "audio_outputs": 2,
+  "midi_input": false,
+  "midi_output": false,
+  "is_synth": false,
+  "groups": [
+    {
+      "symbol": "delay",
+      "name": "Delay"
+    },
+    {
+      "symbol": "grains",
+      "name": "Grains"
+    },
+    {
+      "symbol": "hop",
+      "name": "Hop"
+    },
+    {
+      "symbol": "viz",
+      "name": "Viz"
+    }
+  ],
+  "params": [
+    {
+      "symbol": "time",
+      "name": "Time",
+      "min": 10,
+      "max": 2000,
+      "def": 300,
+      "unit": "ms",
+      "group": "delay"
+    },
+    {
+      "symbol": "feedback",
+      "name": "Feedback",
+      "min": 0,
+      "max": 95,
+      "def": 30,
+      "unit": "%",
+      "group": "delay"
+    },
+    {
+      "symbol": "mix",
+      "name": "Mix",
+      "min": 0,
+      "max": 100,
+      "def": 50,
+      "unit": "%",
+      "group": "delay"
+    },
+    {
+      "symbol": "spread",
+      "name": "Stereo spread",
+      "min": 0,
+      "max": 100,
+      "def": 50,
+      "unit": "%",
+      "group": "delay"
+    },
+    {
+      "symbol": "grain_size",
+      "name": "Grain size",
+      "min": 5,
+      "max": 500,
+      "def": 80,
+      "unit": "ms",
+      "group": "grains"
+    },
+    {
+      "symbol": "density",
+      "name": "Density",
+      "min": 1,
+      "max": 50,
+      "def": 12,
+      "unit": "grains/s",
+      "group": "grains"
+    },
+    {
+      "symbol": "pitch",
+      "name": "Pitch",
+      "min": -24,
+      "max": 24,
+      "def": 0,
+      "unit": "st",
+      "group": "grains"
+    },
+    {
+      "symbol": "jitter",
+      "name": "Jitter",
+      "min": 0,
+      "max": 100,
+      "def": 20,
+      "unit": "%",
+      "group": "grains"
+    },
+    {
+      "symbol": "hop",
+      "name": "Hop",
+      "min": 0,
+      "max": 100,
+      "def": 0,
+      "unit": "%",
+      "group": "hop"
+    },
+    {
+      "symbol": "gravity",
+      "name": "Gravity",
+      "min": 0,
+      "max": 100,
+      "def": 50,
+      "unit": "%",
+      "group": "hop"
+    },
+    {
+      "symbol": "reverse",
+      "name": "Reverse",
+      "min": 0,
+      "max": 100,
+      "def": 0,
+      "unit": "%",
+      "group": "hop"
+    },
+    {
+      "symbol": "freeze",
+      "name": "Freeze",
+      "min": 0,
+      "max": 1,
+      "def": 0,
+      "hints": [
+        "boolean"
+      ],
+      "group": "hop"
+    }
+  ],
+  "outputs": [
+    {
+      "symbol": "grain_count",
+      "name": "Grains",
+      "min": 0,
+      "max": 64,
+      "def": 0,
+      "group": "viz"
+    },
+    {
+      "symbol": "read_pos",
+      "name": "Read position",
+      "min": 0,
+      "max": 1,
+      "def": 0,
+      "group": "viz"
+    },
+    {
+      "symbol": "hop_height",
+      "name": "Hop height",
+      "min": 0,
+      "max": 1,
+      "def": 0,
+      "group": "viz"
+    }
+  ],
+  "port_extras": {},
+  "ui": {
+    "width": 640,
+    "height": 320
+  },
+  "widget": {
+    "half_height": true
+  }
+}
