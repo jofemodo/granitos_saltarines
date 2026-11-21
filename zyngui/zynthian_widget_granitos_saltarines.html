@@ -1,24 +1,32 @@
 <h1>Granitos saltarines</h1>
-<p>Granular delay whose grains hop around the buffer like bouncing balls</p>
+<p>A granular delay. The input is recorded into a 2 s buffer, and the sound comes back as many short grains read from it. Each grain can hop around the buffer like a bouncing ball, which gives the plugin its character.</p>
 
 <h2>Widget</h2>
-<p>TODO: what the widget shows and how to read it.</p>
+<p>The strip is the delay buffer. The green line is where the grains are reading now, and each green dot is a grain that is sounding. The orange ball bounces above the strip: the higher it is, the bigger the current hop.</p>
 
-<h2>Controls</h2>
+<h2>Delay</h2>
 <ul>
-  <li><b>Time</b> (10 .. 2000 ms): TODO</li>
-  <li><b>Feedback</b> (0 .. 95 %): TODO</li>
-  <li><b>Mix</b> (0 .. 100 %): TODO</li>
-  <li><b>Stereo spread</b> (0 .. 100 %): TODO</li>
-  <li><b>Grain size</b> (5 .. 500 ms): TODO</li>
-  <li><b>Density</b> (1 .. 50 grains/s): TODO</li>
-  <li><b>Pitch</b> (-24 .. 24 st): TODO</li>
-  <li><b>Jitter</b> (0 .. 100 %): TODO</li>
-  <li><b>Hop</b> (0 .. 100 %): TODO</li>
-  <li><b>Gravity</b> (0 .. 100 %): TODO</li>
-  <li><b>Reverse</b> (0 .. 100 %): TODO</li>
-  <li><b>Freeze</b> (0 .. 1 ): TODO</li>
+  <li><b>Time</b>: how far back in the buffer the grains start, in ms.</li>
+  <li><b>Feedback</b>: how much of the output goes back into the buffer, so each repeat is heard again.</li>
+  <li><b>Mix</b>: dry signal against the granular (wet) signal.</li>
+  <li><b>Stereo spread</b>: how wide the grains are spread across the stereo field.</li>
+</ul>
+
+<h2>Grains</h2>
+<ul>
+  <li><b>Grain size</b>: length of each grain, in ms. Short grains sound grainy, long ones sound smooth.</li>
+  <li><b>Density</b>: how many grains start per second.</li>
+  <li><b>Pitch</b>: transposes the grains, in semitones.</li>
+  <li><b>Jitter</b>: randomness of each grain's start, pitch and pan.</li>
+</ul>
+
+<h2>Hop</h2>
+<ul>
+  <li><b>Hop</b>: how far each grain bounces around the buffer. This is the main character control.</li>
+  <li><b>Gravity</b>: how quickly the bounces die away. Low values keep the bouncing going, high values settle it fast.</li>
+  <li><b>Reverse</b>: the chance that a grain plays backwards.</li>
+  <li><b>Freeze</b>: stops recording new input, so the buffer keeps looping the same material and the grains keep hopping over it.</li>
 </ul>
 
 <h2>Tips</h2>
-<p>TODO</p>
+<p>Start with <b>Hop</b> at 0 and raise it slowly: high values can sound chaotic. Try a long grain size with low density for smooth, sustained textures, and short grains with high density for clouds.</p>

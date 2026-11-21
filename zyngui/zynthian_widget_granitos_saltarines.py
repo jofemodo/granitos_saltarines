@@ -3,11 +3,14 @@
 # ZYNTHIAN PROJECT: Zynthian widget for "Granitos saltarines"
 #
 # Plugin: <https://zynthian.org/plugins/granitos_saltarines>
-# Declared as a zyngui:widget LV2 UI (see the bundle's manifest.ttl).
+# Declared as a zyngui:widget LV2 UI (see the bundle's manifest.ttl). Half height.
+#
+# Shows the delay buffer as a strip, the read position of the grains as a marker, one dot per
+# sounding grain and a ball that bounces above the strip with the current hop.
 #
 # Data: LV2 output control ports ("monitors"), polled ~30 times/s while shown:
-#   self.monitors[symbol] -> float
-# Controls: self.processor.controllers_dict[symbol] (zctrl: .value, .set_value(v, True), .nudge(n))
+#   self.monitors['grain_count'], ['read_pos'] (0..1), ['hop_height'] (0..1)
+# The widget only draws: it has no controls of its own.
 #
 # Copyright (C) 2026 Jofemodo
 # License: GPL-3.0-or-later
@@ -18,71 +21,92 @@ import tkinter
 from zyngui import zynthian_gui_config
 from zyngui import zynthian_widget_base
 
-# Output ports shown by this (generic) widget: symbol -> (label, min, max, unit)
-MONITORS = {
-    'grain_count': ('Grains', 0.0, 64.0, ''),
-    'read_pos': ('Read position', 0.0, 1.0, ''),
-    'hop_height': ('Hop height', 0.0, 1.0, ''),
-}
+MAX_GRAINS = 64  # must match kMaxGrains in the DSP
+OFFSCREEN = -10
 
 
 class zynthian_widget_granitos_saltarines(zynthian_widget_base.zynthian_widget_base):
 
     def __init__(self, parent):
         super().__init__(parent)
+        # Half height: the list of pages stays visible above the widget
+        self.rows = max(1, self.rows // 2)
+
         self.widget_canvas = tkinter.Canvas(self, highlightthickness=0, relief='flat',
                                             bg=zynthian_gui_config.color_bg)
         self.widget_canvas.grid(sticky='news')
 
-        # Create all the canvas items once: refresh_gui() only moves/changes them
-        self.items = {}
-        tx = zynthian_gui_config.color_panel_tx
-        for symbol, (label, vmin, vmax, unit) in MONITORS.items():
-            self.items[symbol] = {
-                'label': self.widget_canvas.create_text(0, 0, anchor=tkinter.W, text=label, fill=tx),
-                'bg': self.widget_canvas.create_rectangle(0, 0, 0, 0, fill=zynthian_gui_config.color_panel_bg, width=0),
-                'bar': self.widget_canvas.create_rectangle(0, 0, 0, 0, fill=zynthian_gui_config.color_on, width=0),
-                'value': self.widget_canvas.create_text(0, 0, anchor=tkinter.E, text="", fill=tx),
-            }
-        self.bar_x0 = self.bar_x1 = 0
-        self.last_values = {}
+        # All canvas items are created once here; refresh_gui() only moves them
+        c = self.widget_canvas
+        self.strip = c.create_rectangle(0, 0, 0, 0, fill=zynthian_gui_config.color_panel_bg, width=0)
+        self.marker = c.create_line(0, 0, 0, 0, fill=zynthian_gui_config.color_hl, width=2)
+        self.ball = c.create_oval(0, 0, 0, 0, fill=zynthian_gui_config.color_on, width=0)
+        self.grains = [c.create_oval(OFFSCREEN, OFFSCREEN, OFFSCREEN, OFFSCREEN,
+                                     fill=zynthian_gui_config.color_hl, width=0)
+                       for _ in range(MAX_GRAINS)]
+        self.label = c.create_text(0, 0, anchor=tkinter.NW, text="", fill=zynthian_gui_config.color_panel_tx)
+
+        self.last_state = None  # (grain count, read px, hop px) last drawn
 
     def on_size(self, event):
         if not super().on_size(event):
             return
-        n = max(1, len(MONITORS))
-        row_h = min(self.height / n, self.height / 4)
-        font = (zynthian_gui_config.font_family, max(8, int(row_h * 0.3)))
-        self.bar_x0 = int(self.width * 0.3)
-        self.bar_x1 = int(self.width * 0.8)
-        for i, (symbol, items) in enumerate(self.items.items()):
-            y0 = int(i * row_h + row_h * 0.25)
-            y1 = int(i * row_h + row_h * 0.75)
-            ym = (y0 + y1) // 2
-            self.widget_canvas.coords(items['label'], 8, ym)
-            self.widget_canvas.itemconfigure(items['label'], font=font)
-            self.widget_canvas.coords(items['bg'], self.bar_x0, y0, self.bar_x1, y1)
-            self.widget_canvas.coords(items['bar'], self.bar_x0, y0, self.bar_x0, y1)
-            self.widget_canvas.coords(items['value'], self.width - 8, ym)
-            self.widget_canvas.itemconfigure(items['value'], font=font)
-        self.last_values = {}  # Redraw all values with the new geometry
+        w, h = self.width, self.height
+        self.x0 = int(w * 0.06)
+        self.x1 = int(w * 0.94)
+        self.strip_top = int(h * 0.60)
+        self.strip_bot = int(h * 0.86)
+        self.max_hop = h * 0.45          # how high the ball can bounce above the strip
+        self.ball_r = max(3, int(h * 0.06))
+        self.grain_r = max(2, int(h * 0.03))
+        self.spread = w * 0.12           # horizontal spread of the grain cloud around the read point
+
+        c = self.widget_canvas
+        c.coords(self.strip, self.x0, self.strip_top, self.x1, self.strip_bot)
+        c.coords(self.label, 8, 4)
+        c.itemconfigure(self.label, font=(zynthian_gui_config.font_family, max(8, int(h * 0.1))))
+        self.last_state = None           # redraw everything with the new geometry
 
     def refresh_gui(self):
-        # Called every ~32 ms while shown: only touch the items whose value changed
-        for symbol, (label, vmin, vmax, unit) in MONITORS.items():
-            value = self.monitors.get(symbol)
-            if value is None or value == self.last_values.get(symbol):
-                continue
-            self.last_values[symbol] = value
-            items = self.items[symbol]
-            frac = min(1.0, max(0.0, (value - vmin) / (vmax - vmin))) if vmax > vmin else 0.0
-            x0, y0, x1, y1 = self.widget_canvas.coords(items['bg'])
-            self.widget_canvas.coords(items['bar'], x0, y0, x0 + frac * (x1 - x0), y1)
-            self.widget_canvas.itemconfigure(items['value'], text=f"{value:.1f} {unit}".strip())
+        # Called every ~32 ms while shown: only touch the canvas when something moved
+        if not hasattr(self, 'strip_top'):
+            return  # on_size not called yet
+        m = self.monitors or {}
+        count = m.get('grain_count')
+        pos = m.get('read_pos')
+        hop = m.get('hop_height')
+        if count is None or pos is None or hop is None:
+            return
+
+        n = min(MAX_GRAINS, max(0, int(round(count))))
+        px = int(self.x0 + min(1.0, max(0.0, pos)) * (self.x1 - self.x0))
+        hpx = int(min(1.0, max(0.0, hop)) * self.max_hop)
+        state = (n, px, hpx)
+        if state == self.last_state:
+            return
+        self.last_state = state
+
+        c = self.widget_canvas
+        r = self.ball_r
+        c.coords(self.marker, px, self.strip_top, px, self.strip_bot)
+        ball_y = self.strip_top - r - 2 - hpx
+        c.coords(self.ball, px - r, ball_y - r, px + r, ball_y + r)
+
+        # One dot per sounding grain, spread over the strip around the read point
+        strip_h = self.strip_bot - self.strip_top
+        gr = self.grain_r
+        for i, dot in enumerate(self.grains):
+            if i < n:
+                dx = ((i * 0.618034) % 1.0 - 0.5) * self.spread
+                dy = ((i * 0.381966) % 1.0) * strip_h
+                cx = px + dx
+                cy = self.strip_top + dy
+                c.coords(dot, cx - gr, cy - gr, cx + gr, cy + gr)
+            else:
+                c.coords(dot, OFFSCREEN, OFFSCREEN, OFFSCREEN, OFFSCREEN)
+
+        c.itemconfigure(self.label, text=f"{n} grains")
 
     # Optional hooks (return True to consume the event, otherwise the control view handles it):
     # def zynpot_cb(self, i, dval): ...
     # def switch(self, i, t): ...
-    # def cuia_arrow_up(self, params=None): ...
-    # Example of a control from the widget:
-    #   zctrl = self.processor.controllers_dict.get("gain"); zctrl.nudge(dval)
