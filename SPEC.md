@@ -33,29 +33,33 @@ Pages = port groups, 4 controls per page in zynthian. Symbols are stable API.
 
 Note: the zynthian's own level meters are used, so there are no peak-level outputs.
 
-## Outputs (LV2 output ports → widget monitors, ~30 Hz) — AGREED
+## Outputs (LV2 output ports → widget monitors, ~30 Hz) — AGREED (revised after review)
 
-| Symbol | Name | Range | Unit | Meaning / how it's computed |
-|---|---|---|---|---|
-| `grain_count` | Grains | 0 .. 64 | | Number of grains currently sounding |
-| `read_pos` | Read position | 0 .. 1 | | Read position of the grains in the buffer, as a fraction of the buffer length |
-| `hop_height` | Hop height | 0 .. 1 | | Height of the current bounce (the hop curve value, normalised) |
+| Symbol | Name | Range | Meaning / how it's computed |
+|---|---|---|---|
+| `grain_count` | Grains | 0 .. 64 | Number of grains sounding at the end of the block. About `density × grain_size`: 1 at the defaults, ~25 at 50 grains/s with 500 ms grains. |
+| `read_pos` | Read position | 0 .. 1 | Where the grains read by default: write head − `time`, as a fraction of the buffer. Always defined, moves smoothly forward and wraps at the end of the strip. |
+| `hop_height` | Hop height | 0 .. 1 | Highest bounce among the sounding grains, scaled by the `hop` control (0 when `hop` is 0). |
+| `grain_pos_1` .. `grain_pos_16` | Grain N position | -1 .. 1 | Real read position (0..1 of the buffer) of grain pool slots 0..15, or -1 when the slot is idle. Grains take the lowest free slot, so up to 16 simultaneous grains are all shown. |
 
-## DSP — DONE (host-tested locally; not yet on the zynthian)
-- Buffer: stereo circular buffer of 2 s at the host sample rate. The input plus the feedback signal is written every sample, unless `freeze` is on.
+16 position ports instead of one cloud of invented dots: the widget draws each dot where the grain really reads.
+
+## DSP — DONE (host-tested locally and built on the zynthian)
+- Buffer: stereo circular buffer of 3 s at the host sample rate (time max 2 s + jitter 0.25 s + longest grain 0.5 s). The input plus the feedback signal is written every sample, unless `freeze` is on.
 - Grain scheduler: a new grain starts every `1/density` seconds, with a random offset of up to ±50 % of that interval.
-- Grain pool: up to 64 preallocated grains. When full, the oldest grain is stolen.
+- Grain pool: up to 64 preallocated grains, taking the lowest free slot. When full, the oldest grain is stolen.
 - Grain parameters:
   - Start position: `write_pos − time`, plus a random offset scaled by `jitter`.
   - Length: `grain_size`, shaped by a Hann window.
   - Rate: `2^((pitch + random detune × jitter) / 12)`.
   - Direction: backwards with probability `reverse`.
   - Pan: random per grain within `spread`, equal power.
+- Reading is done as a delay behind the write head. Unless `freeze` is on, the delay is kept between 64 samples and the oldest sample, so a pitched-up or reversed grain never reads audio from a full buffer ago. When frozen, reads wrap around the buffer and the material keeps looping.
 - Hop: each grain bounces through its lifetime. At bounce `k` its read position jumps forward by `hop × step × r^k`, where `r` shrinks as `gravity` rises.
-- Feedback goes back into the buffer, so the grains feed the next repeat.
+- Feedback goes back into the buffer, so the grains feed the next repeat. The output is levelled by `1/sqrt(overlap)` (overlap = density × grain length / 2), the feedback path by `1/overlap` with a soft clip (`tanh`): even correlated grains give a loop gain below the feedback setting, so it can't run away.
 - Changing `time` glides the read position over about 50 ms, so there are no clicks.
 - Mix: dry/wet with equal power.
-- RT rules: no allocation, locks, I/O or logging in `run()`.
+- RT rules: no allocation, locks, I/O or logging in `run()`. Denormals in the buffer are flushed to zero.
 
 ## State & presets — AGREED
 - No extra saved state (the buffer is runtime-only).
@@ -63,12 +67,12 @@ Note: the zynthian's own level meters are used, so there are no peak-level outpu
 
 ## Zynthian widget — DONE (built, installed, check passes; not yet seen on the display)
 - Half height: the lower half of the screen, with the page list visible above it.
-- Shows a horizontal strip for the 2 s buffer, with a marker at `read_pos`.
-- A dot per active grain (`grain_count`) drawn at the marker.
-- A small ball bouncing above the strip, its height following `hop_height`.
-- Colours from the zynthian theme.
-- No knob or switch handling: the widget only draws.
-- Status: `spec.json` has `half_height: true`. The widget code isn't written yet.
+- A strip for the 3 s circular buffer, with 2 % side margins, and a line at `read_pos`.
+- One dot per sounding grain (up to 16), at the position it is really reading (`grain_pos_N`). The lane (vertical position) is fixed by the grain slot.
+- A ball above the strip at `read_pos`, its height following `hop_height`.
+- A bar of 16 segments under the strip, 2 grains per segment (full = 32 grains), from `grain_count`.
+- The strip is a ring: near the seam, some grains can already be back at the start while the marker is still at the end.
+- Colours from the zynthian theme. No knob or switch handling: the widget only draws.
 
 ## Native GUI (X11, Cairo) — DONE (built on the zynthian; not yet seen on the VNC display)
 - Window about 640×320, shown on the VNC display only.

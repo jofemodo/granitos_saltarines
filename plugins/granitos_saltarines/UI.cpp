@@ -25,9 +25,9 @@ using DGL_NAMESPACE::CairoGraphicsContext;
 namespace {
 constexpr uint32_t kColumns = 3;         // one column per control page
 constexpr uint32_t kRowsPerColumn = 4;   // 4 controls per page
-constexpr uint32_t kMaxGrainDots = 64;   // must match kMaxGrains in the DSP
 constexpr uint32_t kSegments = 16;       // density bar: 16 segments...
-constexpr uint32_t kGrainsPerSegment = kMaxGrainDots / kSegments;  // ...of 4 grains each
+constexpr uint32_t kGrainsPerSegment = 2;  // ...of 2 grains each: full bar = 32 grains, more than the DSP reaches (~28)
+constexpr uint32_t kGrainLanes = 4;      // grain dots are spread over this many lanes of the strip, by grain slot
 constexpr double kViewFraction = 0.46;   // top part of the window: buffer view
 constexpr double kMargin = 10.0;
 }
@@ -167,9 +167,9 @@ private:
 
     void drawBufferView(cairo_t* const cr, const double w, const double h)
     {
-        const double stripTop = h * 0.28, stripBot = h * 0.36;
+        const double stripTop = h * 0.26, stripBot = h * 0.36;
         const double r = h * 0.03;
-        const double maxHop = h * 0.14;
+        const double maxHop = h * 0.12;
 
         // Title and grain count
         cairo_select_font_face(cr, "sans-serif", CAIRO_FONT_SLANT_NORMAL, CAIRO_FONT_WEIGHT_BOLD);
@@ -178,9 +178,9 @@ private:
         cairo_move_to(cr, kMargin, h * 0.09);
         cairo_show_text(cr, "Granitos saltarines");
 
-        const int count = std::min(static_cast<int>(kMaxGrainDots), static_cast<int>(std::lround(fValues[kParamGrainCount])));
+        const int count = static_cast<int>(std::lround(fValues[kParamGrainCount]));
 
-        // Density bar under the strip, same width as the strip: segment i is lit when there are more than 4*i grains
+        // Density bar under the strip, same width as the strip: segment i is lit when there are more than 2*i grains
         const double barX0 = w * 0.02, barX1 = w * 0.98;
         const double segW = (barX1 - barX0) / kSegments;
         const double barY0 = h * 0.39, barY1 = h * 0.43;
@@ -208,16 +208,18 @@ private:
         cairo_line_to(cr, readX, stripBot);
         cairo_stroke(cr);
 
-        // Grain dots: spread around the read point, one per sounding grain
-        const double spread = w * 0.12;
-        const double stripH = stripBot - stripTop;
-        const double gr = std::fmax(2.0, h * 0.02);
+        // Grain dots: one per sounding grain, at the position it is really reading (up to 16 grains).
+        // The lane (vertical position) is fixed by the grain's slot, so a grain keeps its lane while it sounds.
+        const double laneH = (stripBot - stripTop) / kGrainLanes;
+        const double gr = std::fmax(2.0, laneH * 0.4);
         cairo_set_source_rgb(cr, 0.20, 0.75, 0.35);
-        for (int i = 0; i < count; ++i)
+        for (uint32_t k = 0; k < kGrainPosCount; ++k)
         {
-            const double dx = (std::fmod(i * 0.618034, 1.0) - 0.5) * spread;
-            const double dy = std::fmod(i * 0.381966, 1.0) * stripH;
-            cairo_arc(cr, readX + dx, stripTop + dy, gr, 0.0, 2.0 * M_PI);
+            const float v = fValues[kParamGrainPos0 + k];
+            if (v < 0.0f)
+                continue;  // idle slot
+            const double x = stripX0 + std::fmin(1.0, static_cast<double>(v)) * (stripX1 - stripX0);
+            cairo_arc(cr, x, stripTop + (static_cast<double>(k % kGrainLanes) + 0.5) * laneH, gr, 0.0, 2.0 * M_PI);
             cairo_fill(cr);
         }
 
@@ -227,7 +229,6 @@ private:
         cairo_set_source_rgb(cr, 0.95, 0.55, 0.15);
         cairo_arc(cr, readX, ballY, r, 0.0, 2.0 * M_PI);
         cairo_fill(cr);
-
     }
 
     // ----------------------------------------------------------------------------------------------------------------

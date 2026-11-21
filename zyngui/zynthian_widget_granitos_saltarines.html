@@ -1,8 +1,8 @@
 <h1>Granitos saltarines</h1>
-<p>A granular delay. The input is recorded into a 2 s buffer, and the sound comes back as many short grains read from it. Each grain can hop around the buffer like a bouncing ball, which gives the plugin its character.</p>
+<p>A granular delay. The input is recorded into a 3 s buffer, and the sound comes back as many short grains read from it. Each grain can hop around the buffer like a bouncing ball, which gives the plugin its character.</p>
 
 <h2>Widget</h2>
-<p>The strip is the delay buffer. The green line is where the grains are reading now, and each green dot is a grain that is sounding. The orange ball bounces above the strip: the higher it is, the bigger the current hop.</p>
+<p>The strip is the delay buffer, a ring of 3 s: the sound is recorded moving along it and wraps around at the end. The thin line is where the grains read by default, which is the delay time behind the recording point. Each dot is a grain that is sounding, drawn where it really is reading. The ball bounces above the strip: the higher it is, the bigger the current hop, and it stays down when Hop is 0. The bar under the strip shows how many grains sound at once.</p>
 
 <h2>Delay</h2>
 <ul>

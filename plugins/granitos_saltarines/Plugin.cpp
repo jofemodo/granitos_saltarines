@@ -23,7 +23,7 @@ namespace GranitosDsp {
 constexpr uint32_t kMaxGrains = 64;     // preallocated grain pool
 constexpr uint32_t kBounces = 4;        // bounces per grain when hop > 0
 constexpr uint32_t kHannSize = 1024;    // window lookup table
-constexpr double kBufferSeconds = 2.5;  // time max (2 s) + jitter and hop margin
+constexpr double kBufferSeconds = 3.0;  // time max (2 s) + jitter (0.25 s) + longest grain (0.5 s)
 constexpr double kSmoothSeconds = 0.05; // glide time for time / mix / feedback
 constexpr double kMinDelaySamples = 64.0;
 constexpr double kPi = 3.14159265358979323846;
@@ -51,25 +51,26 @@ struct Grain {
     uint32_t age = 0;      // samples since the grain started
     uint32_t len = 1;      // total length in samples
     uint64_t stamp = 0;    // start order, used to steal the oldest grain
-    double start = 0.0;    // read index (buffer samples) at age 0
+    double start = 0.0;    // read index at age 0, in the unwrapped write-counter timeline
     double rate = 1.0;     // playback rate (pitch)
     double sign = 1.0;     // +1 forward, -1 reverse
     float gainL = 0.0f;    // equal-power pan gains
     float gainR = 0.0f;
     double hopAmp = 0.0;   // max forward shift of the first bounce, in samples
+    float hopScale = 0.0f; // hop control (0..1): scales the hop height shown by the widget
     double r = 0.5;        // bounce decay (from gravity)
     uint32_t bounce = 0;   // current bounce index
     double bStart = 0.0;   // phase where the current bounce starts (0..1)
     double bLen = 1.0;     // phase length of the current bounce
     float bHeight = 0.0f;  // relative height of the current bounce
     float lastHop = 0.0f;  // hop height at the last processed sample (for the widget)
-    double lastIdx = 0.0;  // read index at the last processed sample (for the widget)
+    float lastPos = 0.0f;  // read position in the buffer (0..1) at the last processed sample (for the widget)
 };
 
-inline double wrapIndex(double idx, double len)
+// Flush tiny values to zero: denormals are slow on ARM and feedback tails decay into them
+inline float flushDenormal(const float x)
 {
-    idx = std::fmod(idx, len);
-    return idx < 0.0 ? idx + len : idx;
+    return std::fabs(x) < 1e-18f ? 0.0f : x;
 }
 
 } // namespace GranitosDsp
@@ -171,14 +172,16 @@ protected:
             std::fill(fBufR.begin(), fBufR.end(), 0.0f);
             for (Grain& g : fGrains)
                 g.active = false;
-            fWetL = fWetR = 0.0f;
+            fWetL = fWetR = fFbL = fFbR = 0.0f;
             fTime = fValues[kParamTime] * 0.001 * fSampleRate;
             fFeedback = fValues[kParamFeedback] * 0.01f;
             fMix = fValues[kParamMix] * 0.01f;
             fReset = false;
         }
 
-        const double bufLen = static_cast<double>(fBufL.size());
+        const size_t bufSize = fBufL.size();
+        const double bufLen = static_cast<double>(bufSize);
+        const double maxDelay = bufLen - 4.0;
 
         // Block-rate snapshot of the parameters
         const double targetTime = std::max(kMinDelaySamples, fValues[kParamTime] * 0.001 * fSampleRate);
@@ -198,9 +201,13 @@ protected:
         const double r = 0.25 + 0.6 * gravity;
         const double bounceC = (1.0 - r) / (1.0 - std::pow(r, kBounces));
 
-        // Output level compensation: the Hann grains sum to about density * grain_length / 2
+        // The Hann grains sum to about density * grain_length / 2 when they are correlated (same material).
+        // The output is levelled by 1/sqrt(overlap): right for uncorrelated grains (the usual case with some jitter).
+        // The feedback path uses 1/overlap, so that even correlated grains give a loop gain <= feedback < 1,
+        // and a soft clip keeps whatever is left bounded.
         const double overlap = std::max(1.0, fValues[kParamDensity] * (grainLen / fSampleRate) * 0.5);
         const float wetNorm = static_cast<float>(1.0 / std::sqrt(overlap));
+        const float fbNorm = static_cast<float>(1.0 / overlap);
 
         const float* const inL = inputs[0];
         const float* const inR = inputs[1];
@@ -217,9 +224,11 @@ protected:
             // Record the input plus feedback, unless frozen
             if (!freeze)
             {
-                fBufL[fWrite] = inL[i] + fFeedback * fWetL;
-                fBufR[fWrite] = inR[i] + fFeedback * fWetR;
-                fWrite = (fWrite + 1) % fBufL.size();
+                fBufL[fWrite] = flushDenormal(inL[i] + std::tanh(fFeedback * fFbL));
+                fBufR[fWrite] = flushDenormal(inR[i] + std::tanh(fFeedback * fFbR));
+                if (++fWrite >= bufSize)
+                    fWrite = 0;
+                fWriteCount += 1.0;
             }
 
             // Grain scheduler: one grain every 1/density seconds, timing randomised by ±50 %
@@ -231,7 +240,7 @@ protected:
             }
 
             // Sum all active grains
-            float wetL = 0.0f, wetR = 0.0f;
+            float sumL = 0.0f, sumR = 0.0f;
             for (Grain& g : fGrains)
             {
                 if (!g.active)
@@ -255,27 +264,45 @@ protected:
                     hopH = g.bHeight * static_cast<float>(4.0 * q * (1.0 - q));
                 }
 
-                // Read index: start + pitch drift + forward shift of the hop (towards the write head)
+                // Read position: start + pitch drift + forward shift of the hop (towards the write head),
+                // expressed as a delay behind the write head.
                 const double idx = g.start + g.sign * g.rate * static_cast<double>(g.age) + g.hopAmp * hopH;
-                const double pos = wrapIndex(idx, bufLen);
+                double delay = fWriteCount - idx;
+                if (!freeze)
+                {
+                    // A pitched-up or reversed grain can catch up with the write head, and a slow one can fall
+                    // behind the oldest sample: keep the read inside the valid recorded audio.
+                    // (When frozen, the read wraps around the buffer so the material keeps looping.)
+                    delay = std::min(maxDelay, std::max(kMinDelaySamples, delay));
+                }
+                double pos = static_cast<double>(fWrite) - delay;
+                if (pos < 0.0 || pos >= bufLen)
+                {
+                    pos = std::fmod(pos, bufLen);  // only reached when frozen
+                    if (pos < 0.0)
+                        pos += bufLen;
+                }
+
                 const size_t i0 = static_cast<size_t>(pos);
-                const size_t i1 = (i0 + 1) % fBufL.size();
+                const size_t i1 = (i0 + 1 >= bufSize) ? 0 : i0 + 1;
                 const float frac = static_cast<float>(pos - static_cast<double>(i0));
                 const float sL = fBufL[i0] + frac * (fBufL[i1] - fBufL[i0]);
                 const float sR = fBufR[i0] + frac * (fBufR[i1] - fBufR[i0]);
 
-                wetL += w * g.gainL * sL;
-                wetR += w * g.gainR * sR;
+                sumL += w * g.gainL * sL;
+                sumR += w * g.gainR * sR;
 
-                g.lastIdx = pos;
-                g.lastHop = hopH;
+                g.lastPos = static_cast<float>(pos / bufLen);
+                g.lastHop = hopH * g.hopScale;  // the ball only bounces as much as the hop control asks
                 ++g.age;
                 if (g.age >= g.len)
                     g.active = false;
             }
 
-            fWetL = wetL * wetNorm;
-            fWetR = wetR * wetNorm;
+            fWetL = sumL * wetNorm;
+            fWetR = sumR * wetNorm;
+            fFbL = sumL * fbNorm;
+            fFbR = sumR * fbNorm;
 
             // Equal-power dry/wet
             const float dryG = std::cos(fMix * static_cast<float>(kPi) * 0.5f);
@@ -284,27 +311,37 @@ protected:
             outR[i] = dryG * inR[i] + wetG * fWetR;
         }
 
-        // Values for the widget (LV2 output ports): newest active grain is the reference
+        // Values for the widget and the native GUI (LV2 output ports)
         uint32_t count = 0;
-        const Grain* newest = nullptr;
+        float hopHeight = 0.0f;
         for (const Grain& g : fGrains)
         {
             if (!g.active)
                 continue;
             ++count;
-            if (newest == nullptr || g.stamp > newest->stamp)
-                newest = &g;
+            hopHeight = std::max(hopHeight, g.lastHop);  // continuous: each grain's hop starts and ends at 0
         }
         fValues[kParamGrainCount] = static_cast<float>(count);
-        fValues[kParamReadPos] = newest ? static_cast<float>(newest->lastIdx / bufLen) : 0.0f;
-        fValues[kParamHopHeight] = newest ? newest->lastHop : 0.0f;
+
+        // Where the grains read "by default": the write head minus the delay time. Always defined, smooth,
+        // and it wraps around the strip like the buffer does.
+        double nominal = static_cast<double>(fWrite) - fTime;
+        if (nominal < 0.0)
+            nominal += bufLen;
+        fValues[kParamReadPos] = static_cast<float>(nominal / bufLen);
+        fValues[kParamHopHeight] = hopHeight;
+
+        // Real read position of each grain. Grains take the lowest free pool slot, so with up to
+        // kGrainPosCount grains at once they all show up here. -1 = idle slot.
+        for (uint32_t k = 0; k < kGrainPosCount; ++k)
+            fValues[kParamGrainPos0 + k] = fGrains[k].active ? fGrains[k].lastPos : -1.0f;
     }
 
 private:
     void spawnGrain(double delay, double grainLen, float jitter, float pitch, float spread,
                     float pReverse, double hop, double r, double bounceC)
     {
-        // Pick a free slot, or steal the oldest grain
+        // Pick the lowest free slot, or steal the oldest grain
         Grain* slot = nullptr;
         for (Grain& g : fGrains)
         {
@@ -336,17 +373,18 @@ private:
         g.rate = rate;
         g.sign = reverse ? -1.0 : 1.0;
         // Reverse grains start at their most recent point and read backwards
-        g.start = static_cast<double>(fWrite) - d0 + (reverse ? rate * len : 0.0);
+        g.start = fWriteCount - d0 + (reverse ? rate * len : 0.0);
         g.gainL = static_cast<float>(std::cos(pan * kPi * 0.5));
         g.gainR = static_cast<float>(std::sin(pan * kPi * 0.5));
         g.hopAmp = hop * 0.5 * d0;
+        g.hopScale = static_cast<float>(hop);
         g.r = r;
         g.bounce = 0;
         g.bStart = 0.0;
         g.bLen = bounceC;
         g.bHeight = 1.0f;
         g.lastHop = 0.0f;
-        g.lastIdx = 0.0;
+        g.lastPos = 0.0f;  // set by the grain loop: a new grain is processed in the same sample it spawns
     }
 
     float fValues[kParamCount];
@@ -357,7 +395,8 @@ private:
 
     std::vector<float> fBufL;
     std::vector<float> fBufR;
-    size_t fWrite = 0;
+    size_t fWrite = 0;           // write index in the circular buffer
+    double fWriteCount = 0.0;    // samples written so far (unwrapped): the timeline grains read in
 
     Grain fGrains[kMaxGrains];
     uint64_t fStampCounter = 0;
@@ -369,8 +408,10 @@ private:
     double fTime = 0.0;
     float fFeedback = 0.0f;
     float fMix = 0.0f;
-    float fWetL = 0.0f;
+    float fWetL = 0.0f;   // wet signal, levelled for the output
     float fWetR = 0.0f;
+    float fFbL = 0.0f;    // wet signal, levelled for the feedback path
+    float fFbR = 0.0f;
 
     DISTRHO_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(GranitosSaltarinesPlugin)
 };

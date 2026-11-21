@@ -26,8 +26,12 @@ enum ParamId : uint32_t {
     kParamGrainCount = 12,  // output
     kParamReadPos = 13,  // output
     kParamHopHeight = 14,  // output
-    kParamCount
+    kParamGrainPos0 = 15,  // 16 outputs: grain_pos_1 .. grain_pos_16 (kGrainPosCount)
+    kParamCount = 31
 };
+
+// Read position (0..1 of the buffer) of grain pool slots 0..15, or -1 when the slot is idle
+static const uint32_t kGrainPosCount = 16;
 
 enum GroupId : uint32_t {
     kGroupDelay = 0,
@@ -77,6 +81,22 @@ static const ParamDef kParams[kParamCount] = {
     { "grain_count", "Grains", "", 0.0f, 64.0f, 0.0f, kParameterIsAutomatable | kParameterIsOutput, 3, nullptr, 0 },
     { "read_pos", "Read position", "", 0.0f, 1.0f, 0.0f, kParameterIsAutomatable | kParameterIsOutput, 3, nullptr, 0 },
     { "hop_height", "Hop height", "", 0.0f, 1.0f, 0.0f, kParameterIsAutomatable | kParameterIsOutput, 3, nullptr, 0 },
+    { "grain_pos_1", "Grain 1 position", "", -1.0f, 1.0f, -1.0f, kParameterIsAutomatable | kParameterIsOutput, 3, nullptr, 0 },
+    { "grain_pos_2", "Grain 2 position", "", -1.0f, 1.0f, -1.0f, kParameterIsAutomatable | kParameterIsOutput, 3, nullptr, 0 },
+    { "grain_pos_3", "Grain 3 position", "", -1.0f, 1.0f, -1.0f, kParameterIsAutomatable | kParameterIsOutput, 3, nullptr, 0 },
+    { "grain_pos_4", "Grain 4 position", "", -1.0f, 1.0f, -1.0f, kParameterIsAutomatable | kParameterIsOutput, 3, nullptr, 0 },
+    { "grain_pos_5", "Grain 5 position", "", -1.0f, 1.0f, -1.0f, kParameterIsAutomatable | kParameterIsOutput, 3, nullptr, 0 },
+    { "grain_pos_6", "Grain 6 position", "", -1.0f, 1.0f, -1.0f, kParameterIsAutomatable | kParameterIsOutput, 3, nullptr, 0 },
+    { "grain_pos_7", "Grain 7 position", "", -1.0f, 1.0f, -1.0f, kParameterIsAutomatable | kParameterIsOutput, 3, nullptr, 0 },
+    { "grain_pos_8", "Grain 8 position", "", -1.0f, 1.0f, -1.0f, kParameterIsAutomatable | kParameterIsOutput, 3, nullptr, 0 },
+    { "grain_pos_9", "Grain 9 position", "", -1.0f, 1.0f, -1.0f, kParameterIsAutomatable | kParameterIsOutput, 3, nullptr, 0 },
+    { "grain_pos_10", "Grain 10 position", "", -1.0f, 1.0f, -1.0f, kParameterIsAutomatable | kParameterIsOutput, 3, nullptr, 0 },
+    { "grain_pos_11", "Grain 11 position", "", -1.0f, 1.0f, -1.0f, kParameterIsAutomatable | kParameterIsOutput, 3, nullptr, 0 },
+    { "grain_pos_12", "Grain 12 position", "", -1.0f, 1.0f, -1.0f, kParameterIsAutomatable | kParameterIsOutput, 3, nullptr, 0 },
+    { "grain_pos_13", "Grain 13 position", "", -1.0f, 1.0f, -1.0f, kParameterIsAutomatable | kParameterIsOutput, 3, nullptr, 0 },
+    { "grain_pos_14", "Grain 14 position", "", -1.0f, 1.0f, -1.0f, kParameterIsAutomatable | kParameterIsOutput, 3, nullptr, 0 },
+    { "grain_pos_15", "Grain 15 position", "", -1.0f, 1.0f, -1.0f, kParameterIsAutomatable | kParameterIsOutput, 3, nullptr, 0 },
+    { "grain_pos_16", "Grain 16 position", "", -1.0f, 1.0f, -1.0f, kParameterIsAutomatable | kParameterIsOutput, 3, nullptr, 0 },
 };
 
 // Outputs filled by the demo meters in Plugin.cpp (peak dB of the audio outputs)
