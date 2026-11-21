@@ -61,7 +61,7 @@ Note: the zynthian's own level meters are used, so there are no peak-level outpu
 - No extra saved state (the buffer is runtime-only).
 - No factory presets for now.
 
-## Zynthian widget — AGREED
+## Zynthian widget — DONE (built, installed, check passes; not yet seen on the display)
 - Half height: the lower half of the screen, with the page list visible above it.
 - Shows a horizontal strip for the 2 s buffer, with a marker at `read_pos`.
 - A dot per active grain (`grain_count`) drawn at the marker.
@@ -70,13 +70,13 @@ Note: the zynthian's own level meters are used, so there are no peak-level outpu
 - No knob or switch handling: the widget only draws.
 - Status: `spec.json` has `half_height: true`. The widget code isn't written yet.
 
-## Native GUI (X11, Cairo) — AGREED
+## Native GUI (X11, Cairo) — DONE (built on the zynthian; not yet seen on the VNC display)
 - Window about 640×320, shown on the VNC display only.
 - Same three pages of controls as zynthian (Delay, Grains, Hop).
 - Larger version of the buffer view as the main visual: the same elements as the widget (buffer strip, read marker, grain dots, bouncing ball), at a larger size.
 - The GUI is never needed for computation: the plugin works fully without it.
 
-## Help page — AGREED (text to be written)
+## Help page — DONE (written; not yet seen in the UI)
 
 ## Open questions
 - None yet.
