@@ -167,9 +167,9 @@ private:
 
     void drawBufferView(cairo_t* const cr, const double w, const double h)
     {
-        const double stripTop = h * 0.30, stripBot = h * 0.40;
+        const double stripTop = h * 0.28, stripBot = h * 0.36;
         const double r = h * 0.03;
-        const double maxHop = h * 0.18;
+        const double maxHop = h * 0.14;
 
         // Title and grain count
         cairo_select_font_face(cr, "sans-serif", CAIRO_FONT_SLANT_NORMAL, CAIRO_FONT_WEIGHT_BOLD);
@@ -180,10 +180,10 @@ private:
 
         const int count = std::min(static_cast<int>(kMaxGrainDots), static_cast<int>(std::lround(fValues[kParamGrainCount])));
 
-        // Density bar: segment i is lit when there are more than 4*i grains
-        const double barX0 = w * 0.45, barX1 = w - kMargin;
+        // Density bar under the strip, same width as the strip: segment i is lit when there are more than 4*i grains
+        const double barX0 = w * 0.02, barX1 = w * 0.98;
         const double segW = (barX1 - barX0) / kSegments;
-        const double barY0 = h * 0.05, barY1 = h * 0.20;
+        const double barY0 = h * 0.39, barY1 = h * 0.43;
         for (uint32_t i = 0; i < kSegments; ++i)
         {
             if (count > static_cast<int>(i * kGrainsPerSegment))

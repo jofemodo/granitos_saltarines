@@ -65,10 +65,10 @@ class zynthian_widget_granitos_saltarines(zynthian_widget_base.zynthian_widget_b
         self.grain_r = max(2, int(h * 0.03))
         self.spread = w * 0.12           # horizontal spread of the grain cloud around the read point
 
-        # Density bar at the top: SEGMENTS cells across the width
+        # Density bar under the strip: SEGMENTS cells across the strip's width
         seg_w = (self.x1 - self.x0) / SEGMENTS
-        seg_y0 = int(h * 0.08)
-        seg_y1 = int(h * 0.26)
+        seg_y0 = int(h * 0.90)
+        seg_y1 = int(h * 0.98)
         c = self.widget_canvas
         c.coords(self.strip, self.x0, self.strip_top, self.x1, self.strip_bot)
         for i, seg in enumerate(self.segments):
