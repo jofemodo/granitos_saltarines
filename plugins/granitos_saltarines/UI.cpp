@@ -196,11 +196,12 @@ private:
 
         // The buffer strip
         cairo_set_source_rgb(cr, 0.20, 0.21, 0.24);
-        cairo_rectangle(cr, kMargin, stripTop, w - 2 * kMargin, stripBot - stripTop);
+        const double stripX0 = w * 0.02, stripX1 = w * 0.98;  // timeline: 2 % side margins
+        cairo_rectangle(cr, stripX0, stripTop, stripX1 - stripX0, stripBot - stripTop);
         cairo_fill(cr);
 
         // Read position marker
-        const double readX = kMargin + std::fmin(1.0, std::fmax(0.0, fValues[kParamReadPos])) * (w - 2 * kMargin);
+        const double readX = stripX0 + std::fmin(1.0, std::fmax(0.0, fValues[kParamReadPos])) * (stripX1 - stripX0);
         cairo_set_source_rgb(cr, 0.20, 0.75, 0.35);
         cairo_set_line_width(cr, 2.0);
         cairo_move_to(cr, readX, stripTop);

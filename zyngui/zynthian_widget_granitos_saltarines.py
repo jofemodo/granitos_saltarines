@@ -56,8 +56,8 @@ class zynthian_widget_granitos_saltarines(zynthian_widget_base.zynthian_widget_b
         if not super().on_size(event):
             return
         w, h = self.width, self.height
-        self.x0 = int(w * 0.06)
-        self.x1 = int(w * 0.94)
+        self.x0 = int(w * 0.02)  # timeline: 2 % side margins
+        self.x1 = int(w * 0.98)
         self.strip_top = int(h * 0.60)
         self.strip_bot = int(h * 0.86)
         self.max_hop = h * 0.45          # how high the ball can bounce above the strip
