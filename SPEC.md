@@ -41,7 +41,7 @@ Note: the zynthian's own level meters are used, so there are no peak-level outpu
 | `read_pos` | Read position | 0 .. 1 | | Read position of the grains in the buffer, as a fraction of the buffer length |
 | `hop_height` | Hop height | 0 .. 1 | | Height of the current bounce (the hop curve value, normalised) |
 
-## DSP — AGREED
+## DSP — DONE (host-tested locally; not yet on the zynthian)
 - Buffer: stereo circular buffer of 2 s at the host sample rate. The input plus the feedback signal is written every sample, unless `freeze` is on.
 - Grain scheduler: a new grain starts every `1/density` seconds, with a random offset of up to ±50 % of that interval.
 - Grain pool: up to 64 preallocated grains. When full, the oldest grain is stolen.
@@ -76,7 +76,7 @@ Note: the zynthian's own level meters are used, so there are no peak-level outpu
 - Larger version of the buffer view as the main visual: the same elements as the widget (buffer strip, read marker, grain dots, bouncing ball), at a larger size.
 - The GUI is never needed for computation: the plugin works fully without it.
 
-## Help page — TODO
+## Help page — AGREED (text to be written)
 
 ## Open questions
 - None yet.
