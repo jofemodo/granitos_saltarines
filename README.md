@@ -115,6 +115,11 @@ zynthian OS base, so the same glibc and libraries as the device). The build chec
 - A push to the default branch publishes the bundles in the rolling `latest` prerelease.
 - A tag `vX.Y.Z` (matching the version in the code) publishes a release with that name.
 
+The binary packages are on the [releases page](https://github.com/jofemodo/granitos_saltarines/releases): the
+rolling `latest` prerelease (marked as a pre-release, so GitHub doesn't show it in the repository sidebar) and the
+`vX.Y.Z` releases, each with `granitos_saltarines-lv2-arm64.tar.gz` (for the zynthian) and
+`granitos_saltarines-lv2-x86_64.tar.gz`.
+
 To install a downloaded bundle on a zynthian:
 
 ```
