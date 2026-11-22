@@ -31,22 +31,26 @@ as high, with `e = 0.9 − 0.6 × Gravity`. The first bounce lasts 0.7 s. When t
 
 ## Controls
 
-Three pages of four controls, as zynthian shows them.
+Four pages of controls, as zynthian shows them.
 
 | Page | Control | Range | Default | What it does |
 |---|---|---|---|---|
 | Delay | Time | 10 – 2000 ms | 300 | How far behind the write head the grains start |
 | Delay | Feedback | 0 – 95 % | 30 | How much of the wet signal goes back into the buffer |
 | Delay | Mix | 0 – 100 % | 50 | Dry / wet (equal power) |
-| Delay | Stereo spread | 0 – 100 % | 50 | How far each grain's random pan reaches from the centre |
+| Delay | Bypass | off / on | off | Passes the input through untouched |
 | Grains | Grain size | 5 – 500 ms | 80 | Length of each grain |
-| Grains | Density | 1 – 50 grains/s | 12 | Grains started per second (timing randomised by ±50 %) |
-| Grains | Pitch | −24 – +24 st | 0 | Transposes the grains |
+| Grains | Density | 1 – 50 grains/s | 12 | Grains started per second (spacing randomised by up to ±50 %) |
 | Grains | Jitter | 0 – 100 % | 20 | Randomises each grain's start position (up to ± half a grain) and pitch (up to ±12 st) |
 | Hop | Hop | 0 – 100 % | 50 | How far the grains follow the bouncing ball |
 | Hop | Gravity | 0 – 100 % | 50 | How fast the ball settles |
-| Hop | Reverse | 0 – 100 % | 0 | Chance that a grain plays backwards |
 | Hop | Freeze | off / on | off | Stops recording: the buffer keeps looping and the grains keep hopping over it |
+| Variation | Pitch | −24 – +24 st | 0 | Transposes the grains |
+| Variation | Reverse | 0 – 100 % | 0 | Chance that a grain plays backwards |
+| Variation | Stereo spread | 0 – 100 % | 50 | How far each grain's random pan reaches from the centre |
+
+Bypass is the plugin's native bypass: it is the LV2 port `lv2_enabled` (designated `lv2:enabled`, which DPF
+inverts for the plugin), so zynthian uses it as the processor's bypass instead of its own routing.
 
 The number of grains sounding at once is about `Density × Grain size`: 1 at the defaults, about 25 at 50 grains/s
 with 500 ms grains.
@@ -54,6 +58,9 @@ with 500 ms grains.
 ## Behaviour notes
 
 - Changing Time, Mix or Feedback glides over about 50 ms, so there are no clicks.
+- Bypass crossfades to the dry input in 10 ms, with no clicks. While bypassed the input passes through bit-exact and
+  the DSP is not run at all, so a bypassed plugin costs almost nothing. The buffer is cleared, so when the bypass is
+  released the delay starts empty, with its recording faded in over the same 10 ms.
 - Grains read as a delay behind the write head, kept between 64 samples and the oldest recorded sample: a grain
   that is pitched up or reversed never reads audio from a whole buffer ago. When Freeze is on, reads wrap around
   the buffer instead, so the frozen material loops.
@@ -75,7 +82,7 @@ Half height, drawn from the plugin's output ports. A strip shows the 3 s circula
   harder it pulls the grains;
 - a bar of 16 segments under the strip, 2 grains per segment, with how many grains sound at once.
 
-The native GUI shows the same view, with the three control pages below it as bars you can drag or scroll.
+The native GUI shows the same view, with the four control pages below it as columns of bars you can drag or scroll.
 
 ### Output ports
 

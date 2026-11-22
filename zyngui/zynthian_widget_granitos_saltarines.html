@@ -15,14 +15,13 @@
   <li><b>Time</b>: how far back in the buffer the grains start, in ms.</li>
   <li><b>Feedback</b>: how much of the output goes back into the buffer, so each repeat is heard again. High values give long, building repeats; they are softly limited, so they never run away.</li>
   <li><b>Mix</b>: dry signal against the granular (wet) signal.</li>
-  <li><b>Stereo spread</b>: how far each grain's random pan reaches from the centre: 0 keeps everything in the middle, 100 spreads the grains across the whole stereo field.</li>
+  <li><b>Bypass</b>: passes the input through untouched, without clicks. While bypassed the plugin does no work and the buffer is cleared, so the delay starts empty when you switch it back on.</li>
 </ul>
 
 <h2>Grains</h2>
 <ul>
   <li><b>Grain size</b>: length of each grain, in ms. Short grains sound grainy, long ones sound smooth.</li>
   <li><b>Density</b>: how many grains start per second, with the spacing between them randomised by up to ±50 %. The number of grains sounding at once is about Density × Grain size: 1 at the defaults, around 25 at 50 grains/s with 500 ms grains.</li>
-  <li><b>Pitch</b>: transposes the grains, in semitones.</li>
   <li><b>Jitter</b>: randomness of each grain's start position and pitch. At 100 % the pitch of a grain can wander up to an octave either way.</li>
 </ul>
 
@@ -30,8 +29,14 @@
 <ul>
   <li><b>Hop</b>: how far the grains follow the bouncing ball. While the ball is high, new grains start closer to the present, so the echoes jump with the ball: by up to half the delay time at 100 %. At 0 the ball still bounces but the grains ignore it. This is the main character control.</li>
   <li><b>Gravity</b>: how quickly the ball settles. At 0 it keeps bouncing for about 6 seconds, at 100 it settles in about a second. You see it in the ball, and hear it when Hop is up.</li>
-  <li><b>Reverse</b>: the chance that a grain plays backwards.</li>
   <li><b>Freeze</b>: stops recording new input, so the buffer keeps looping the same material and the grains keep hopping over it. Nothing new is written while frozen, so Feedback has no effect either.</li>
+</ul>
+
+<h2>Variation</h2>
+<ul>
+  <li><b>Pitch</b>: transposes the grains, in semitones.</li>
+  <li><b>Reverse</b>: the chance that a grain plays backwards.</li>
+  <li><b>Stereo spread</b>: how far each grain's random pan reaches from the centre: 0 keeps everything in the middle, 100 spreads the grains across the whole stereo field.</li>
 </ul>
 
 <h2>Tips</h2>

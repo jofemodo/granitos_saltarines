@@ -27,6 +27,7 @@ constexpr double kBallRestSeconds = 0.3;// pause once the ball has settled, befo
 constexpr double kBallMinPeak = 0.03;   // the ball has settled when its bounce is lower than this
 constexpr double kBufferSeconds = 3.0;  // time max (2 s) + jitter (0.25 s) + longest grain (0.5 s)
 constexpr double kSmoothSeconds = 0.05; // glide time for time / mix / feedback
+constexpr double kBypassSeconds = 0.01; // crossfade to the dry input when bypassed
 constexpr double kMinDelaySamples = 64.0;
 constexpr double kPi = 3.14159265358979323846;
 
@@ -116,6 +117,8 @@ protected:
         if (index >= kParamCount)
             return;
         const ParamDef& p(kParams[index]);
+        if (p.designation != kParameterDesignationNull)
+            parameter.initDesignation(p.designation);  // bypass: LV2 port "lv2_enabled", inverted by DPF
         parameter.hints = p.hints;
         parameter.name = p.name;
         parameter.symbol = p.symbol;
@@ -148,17 +151,33 @@ protected:
         fBufL.assign(len, 0.0f);
         fBufR.assign(len, 0.0f);
         fSmoothCoef = static_cast<float>(1.0 - std::exp(-1.0 / (kSmoothSeconds * sampleRate)));
+        fBypassStep = 1.0f / (static_cast<float>(kBypassSeconds) * static_cast<float>(sampleRate));
         fReset = true;
     }
 
     void activate() override
     {
+        fBypassMix = isBypassed() ? 1.0f : 0.0f;
         fReset = true;
     }
 
     // RT-safe: no allocation, locks, I/O or logging here.
     void run(const float** const inputs, float** const outputs, const uint32_t frames) override
     {
+        // Bypass: the processed signal is crossfaded to the dry input in 10 ms (see the sample loop). Once fully
+        // bypassed there is nothing to compute: pass the input through, and start clean (empty buffer, no grains,
+        // the ball thrown again) when the bypass is released.
+        const float bypassTarget = isBypassed() ? 1.0f : 0.0f;
+        if (fBypassMix >= 1.0f && bypassTarget >= 1.0f)
+        {
+            for (uint32_t c = 0; c < 2; ++c)
+                if (outputs[c] != inputs[c])
+                    std::memcpy(outputs[c], inputs[c], sizeof(float) * frames);
+            fReset = true;
+            publishIdle();
+            return;
+        }
+
         if (fBufL.empty())
             return;
         if (fReset)
@@ -212,6 +231,10 @@ protected:
 
         for (uint32_t i = 0; i < frames; ++i)
         {
+            if (fBypassMix != bypassTarget)
+                fBypassMix = bypassTarget > fBypassMix ? std::min(bypassTarget, fBypassMix + fBypassStep)
+                                                       : std::max(bypassTarget, fBypassMix - fBypassStep);
+
             // Glide time, mix and feedback so changes don't click
             fTime += (targetTime - fTime) * fSmoothCoef;
             fFeedback += (targetFeedback - fFeedback) * fSmoothCoef;
@@ -220,8 +243,12 @@ protected:
             // Record the input plus feedback, unless frozen
             if (!freeze)
             {
-                fBufL[fWrite] = flushDenormal(inL[i] + std::tanh(fFeedback * fFbL));
-                fBufR[fWrite] = flushDenormal(inR[i] + std::tanh(fFeedback * fFbR));
+                // The input is recorded with the same 10 ms ramp as the bypass crossfade: after the bypass is
+                // released the buffer starts empty, and recording the input at full level from the first sample
+                // would put a hard edge into the buffer that any grain straddling it would play as a click.
+                const float recGain = 1.0f - fBypassMix;
+                fBufL[fWrite] = flushDenormal(inL[i] * recGain + std::tanh(fFeedback * fFbL));
+                fBufR[fWrite] = flushDenormal(inR[i] * recGain + std::tanh(fFeedback * fFbR));
                 if (++fWrite >= bufSize)
                     fWrite = 0;
                 fWriteCount += 1.0;
@@ -291,8 +318,11 @@ protected:
             // Equal-power dry/wet
             const float dryG = std::cos(fMix * static_cast<float>(kPi) * 0.5f);
             const float wetG = std::sin(fMix * static_cast<float>(kPi) * 0.5f);
-            outL[i] = dryG * inL[i] + wetG * fWetL;
-            outR[i] = dryG * inR[i] + wetG * fWetR;
+            const float processedL = dryG * inL[i] + wetG * fWetL;
+            const float processedR = dryG * inR[i] + wetG * fWetR;
+            // Bypass crossfade: processed -> dry input (inputs are read before the outputs are written: they may alias)
+            outL[i] = processedL + (inL[i] - processedL) * fBypassMix;
+            outR[i] = processedR + (inR[i] - processedR) * fBypassMix;
         }
 
         // Values for the widget and the native GUI (LV2 output ports)
@@ -320,6 +350,24 @@ protected:
     }
 
 private:
+    // The bypass parameter: 1 = bypassed (DPF inverts the LV2 port "lv2_enabled" for the plugin)
+    bool isBypassed() const
+    {
+        return fValues[kBypassParam] > 0.5f;
+    }
+
+    // Nothing is sounding while the plugin is bypassed: tell the widget and the GUI
+    void publishIdle()
+    {
+        fValues[kParamGrainCount] = 0.0f;
+        fValues[kParamHopHeight] = 0.0f;
+        for (uint32_t k = 0; k < kGrainPosCount; ++k)
+        {
+            fValues[kParamGrainPos0 + k] = -1.0f;
+            fValues[kParamGrainEnv0 + k] = 0.0f;
+        }
+    }
+
     // ----------------------------------------------------------------------------------------------------------------
     // The bouncing ball. It is thrown, bounces with each bounce shorter and lower than the last (how much shorter
     // depends on gravity), settles, rests for a moment and is thrown again. Grains born while it is high start
@@ -415,6 +463,9 @@ private:
     double fSampleRate = 48000.0;
     float fSmoothCoef = 0.0f;
     bool fReset = true;
+
+    float fBypassMix = 0.0f;   // 0 = processed, 1 = dry input (bypassed)
+    float fBypassStep = 0.0f;
 
     std::vector<float> fBufL;
     std::vector<float> fBufR;

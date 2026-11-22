@@ -23,8 +23,9 @@ START_NAMESPACE_DISTRHO
 using DGL_NAMESPACE::CairoGraphicsContext;
 
 namespace {
-constexpr uint32_t kColumns = 3;         // one column per control page
+constexpr uint32_t kColumns = kGroupViz; // one column per control page: every group before the output group
 constexpr uint32_t kRowsPerColumn = 4;   // 4 controls per page
+constexpr uint32_t kNoCell = 0xffffffffu;
 constexpr uint32_t kSegments = 16;       // density bar: 16 segments...
 constexpr uint32_t kGrainsPerSegment = 2;  // ...of 2 grains each: full bar = 32 grains, more than the DSP reaches (~28)
 constexpr uint32_t kGrainLanes = 4;      // grain dots are spread over this many lanes of the strip, by grain slot
@@ -39,8 +40,20 @@ public:
         : UI(DISTRHO_UI_DEFAULT_WIDTH, DISTRHO_UI_DEFAULT_HEIGHT),
           fDragging(-1)
     {
+        uint32_t rowsUsed[kColumns] = {};
         for (uint32_t i = 0; i < kParamCount; ++i)
+        {
             fValues[i] = kParams[i].def;
+            // A control sits in the column of its group (its page in zynthian), in the order of the port table
+            fCol[i] = fRow[i] = kNoCell;
+            const int32_t g = kParams[i].group;
+            if ((kParams[i].hints & kParameterIsOutput) == 0 && g >= 0 && static_cast<uint32_t>(g) < kColumns
+                && rowsUsed[g] < kRowsPerColumn)
+            {
+                fCol[i] = static_cast<uint32_t>(g);
+                fRow[i] = rowsUsed[g]++;
+            }
+        }
         setGeometryConstraints(DISTRHO_UI_DEFAULT_WIDTH / 2, DISTRHO_UI_DEFAULT_HEIGHT / 2, true);
     }
 
@@ -128,6 +141,8 @@ protected:
 
 private:
     float fValues[kParamCount];
+    uint32_t fCol[kParamCount];  // column and row of each control, kNoCell for outputs
+    uint32_t fRow[kParamCount];
     int fDragging;
 
     // ----------------------------------------------------------------------------------------------------------------
@@ -138,14 +153,14 @@ private:
         return h * kViewFraction;
     }
 
-    // Control i sits in column i / 4 (its page), row i % 4
+    // Control i sits in the column of its group (its page in zynthian), in the row given by the port table order
     void cellRect(const uint32_t i, const double w, const double h,
                   double& x, double& y, double& cw, double& ch) const
     {
         cw = w / kColumns;
         ch = (h - bodyTop(h)) / kRowsPerColumn;
-        x = (i / kRowsPerColumn) * cw;
-        y = bodyTop(h) + (i % kRowsPerColumn) * ch;
+        x = fCol[i] * cw;
+        y = bodyTop(h) + fRow[i] * ch;
     }
 
     // Index of the control under (x, y), or -1
@@ -155,11 +170,12 @@ private:
         if (y < bodyTop(h) || x < 0.0 || x >= w)
             return -1;
         const uint32_t col = static_cast<uint32_t>(x / (w / kColumns));
-        const uint32_t row = static_cast<uint32_t>((y - bodyTop(h)) / ((h - bodyTop(h)) / kRowsPerColumn));
-        const uint32_t i = col * kRowsPerColumn + std::min(row, kRowsPerColumn - 1);
-        if (i >= kParamCount || (kParams[i].hints & kParameterIsOutput) != 0)
-            return -1;
-        return static_cast<int>(i);
+        const uint32_t row = std::min(static_cast<uint32_t>((y - bodyTop(h)) / ((h - bodyTop(h)) / kRowsPerColumn)),
+                                      kRowsPerColumn - 1);
+        for (uint32_t i = 0; i < kParamCount; ++i)
+            if (fCol[i] == col && fRow[i] == row)
+                return static_cast<int>(i);
+        return -1;
     }
 
     // ----------------------------------------------------------------------------------------------------------------
@@ -243,37 +259,36 @@ private:
     void drawControls(cairo_t* const cr, const double w, const double h)
     {
         cairo_select_font_face(cr, "sans-serif", CAIRO_FONT_SLANT_NORMAL, CAIRO_FONT_WEIGHT_NORMAL);
-        const double fontSize = std::fmin(h * 0.075, (h - bodyTop(h)) / kRowsPerColumn * 0.42);
-        cairo_set_font_size(cr, fontSize);
+        const double rowH = (h - bodyTop(h)) / kRowsPerColumn;
 
         for (uint32_t i = 0; i < kParamCount; ++i)
         {
-            if ((kParams[i].hints & kParameterIsOutput) != 0)
+            if (fCol[i] == kNoCell)
                 continue;
             double x, y, cw, ch;
             cellRect(i, w, h, x, y, cw, ch);
             const ParamDef& p(kParams[i]);
 
-            // Name (left) and value (right)
-            const double baseline = y + ch * 0.42;
+            // Name on top, then the bar with its value inside: four columns are narrow
+            cairo_set_font_size(cr, std::fmin(h * 0.06, rowH * 0.34));
             cairo_set_source_rgb(cr, 0.80, 0.80, 0.80);
-            cairo_move_to(cr, x + kMargin, baseline);
+            cairo_move_to(cr, x + kMargin, y + ch * 0.40);
             cairo_show_text(cr, p.name);
 
-            char text[48];
-            formatValue(i, text, sizeof(text));
-            cairo_set_source_rgb(cr, 0.92, 0.92, 0.92);
-            drawTextRight(cr, text, x + cw - kMargin, baseline);
-
-            // Bar
             const double bx0 = x + kMargin, bx1 = x + cw - kMargin;
-            const double by = y + ch * 0.55, bh = ch * 0.25;
+            const double by = y + ch * 0.50, bh = ch * 0.38;
             cairo_set_source_rgb(cr, 0.20, 0.21, 0.24);
             cairo_rectangle(cr, bx0, by, bx1 - bx0, bh);
             cairo_fill(cr);
             cairo_set_source_rgb(cr, 0.95, 0.55, 0.15);
             cairo_rectangle(cr, bx0, by, (bx1 - bx0) * normalized(i, fValues[i]), bh);
             cairo_fill(cr);
+
+            char text[48];
+            formatValue(i, text, sizeof(text));
+            cairo_set_font_size(cr, bh * 0.62);
+            cairo_set_source_rgb(cr, 0.96, 0.96, 0.96);
+            drawTextRight(cr, text, bx1 - 4.0, by + bh * 0.5 + bh * 0.22);
         }
     }
 

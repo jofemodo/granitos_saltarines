@@ -34,6 +34,10 @@
       "name": "Hop"
     },
     {
+      "symbol": "variation",
+      "name": "Variation"
+    },
+    {
       "symbol": "viz",
       "name": "Viz"
     }
@@ -67,15 +71,6 @@
       "group": "delay"
     },
     {
-      "symbol": "spread",
-      "name": "Stereo spread",
-      "min": 0,
-      "max": 100,
-      "def": 50,
-      "unit": "%",
-      "group": "delay"
-    },
-    {
       "symbol": "grain_size",
       "name": "Grain size",
       "min": 5,
@@ -91,15 +86,6 @@
       "max": 50,
       "def": 12,
       "unit": "grains/s",
-      "group": "grains"
-    },
-    {
-      "symbol": "pitch",
-      "name": "Pitch",
-      "min": -24,
-      "max": 24,
-      "def": 0,
-      "unit": "st",
       "group": "grains"
     },
     {
@@ -130,15 +116,6 @@
       "group": "hop"
     },
     {
-      "symbol": "reverse",
-      "name": "Reverse",
-      "min": 0,
-      "max": 100,
-      "def": 0,
-      "unit": "%",
-      "group": "hop"
-    },
-    {
       "symbol": "freeze",
       "name": "Freeze",
       "min": 0,
@@ -148,6 +125,45 @@
         "boolean"
       ],
       "group": "hop"
+    },
+    {
+      "symbol": "pitch",
+      "name": "Pitch",
+      "min": -24,
+      "max": 24,
+      "def": 0,
+      "unit": "st",
+      "group": "variation"
+    },
+    {
+      "symbol": "reverse",
+      "name": "Reverse",
+      "min": 0,
+      "max": 100,
+      "def": 0,
+      "unit": "%",
+      "group": "variation"
+    },
+    {
+      "symbol": "spread",
+      "name": "Stereo spread",
+      "min": 0,
+      "max": 100,
+      "def": 50,
+      "unit": "%",
+      "group": "variation"
+    },
+    {
+      "symbol": "bypass",
+      "name": "Bypass",
+      "min": 0,
+      "max": 1,
+      "def": 0,
+      "hints": [
+        "boolean"
+      ],
+      "designation": "bypass",
+      "group": "delay"
     }
   ],
   "outputs": [
